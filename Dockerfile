@@ -1,4 +1,4 @@
-FROM target/consensource-rust:1.30-nightly
+FROM target/consensource-rust:cli-1.30
 
 COPY . /cli
 WORKDIR cli
