@@ -4,3 +4,4 @@ pub mod certificate;
 pub mod genesis;
 pub mod organization;
 pub mod standard;
+pub mod user;

@@ -18,6 +18,8 @@ extern crate crypto;
 extern crate futures;
 extern crate hyper;
 extern crate protobuf;
+extern crate reqwest;
+extern crate rpassword;
 extern crate sawtooth_sdk;
 extern crate serde;
 #[macro_use]
@@ -49,6 +51,7 @@ fn main() {
     let result = match args.subcommand() {
         ("agent", Some(args)) => commands::agent::run(args),
         ("genesis", Some(args)) => commands::genesis::run(args),
+        ("user", Some(args)) => commands::user::run(args),
         ("organization", Some(args)) => commands::organization::run(args),
         ("certificate", Some(args)) => commands::certificate::run(args),
         ("standard", Some(args)) => commands::standard::run(args),
@@ -101,6 +104,16 @@ fn parse_args<'a>() -> ArgMatches<'a> {
              "The genesis descriptor yaml file")
             (@arg keys_directory: -K --("keys-directory") +takes_value
              "An optional directory to write out the keys used when generating the various transactions"))
+
+        (@subcommand user =>
+            (about: "manage a user")
+            (@subcommand create =>
+                (about: "create a user")
+                (@arg name: +required "Name of the user to be created")
+                (@arg key: -k --key +takes_value "Signing key name")
+                (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+            )
+        )
 
         (@subcommand organization =>
             (about: "manage the organization")

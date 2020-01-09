@@ -20,7 +20,7 @@ use std::io::prelude::*;
 
 use users::get_current_username;
 
-use sawtooth_sdk::signing::secp256k1::Secp256k1PrivateKey;
+use sawtooth_sdk::signing::secp256k1::{Secp256k1PrivateKey, Secp256k1PublicKey};
 
 use error::CliError;
 
@@ -95,4 +95,77 @@ pub fn load_signing_key(name: Option<&str>) -> Result<Secp256k1PrivateKey, CliEr
     };
 
     Ok(Secp256k1PrivateKey::from_hex(&key_str)?)
+}
+
+/// Return a public key loaded from the user's environment
+///
+/// This method attempts to load the user's key from a file.  The filename
+/// is constructed by appending ".pub" to the key's name.  If the name argument
+/// is None, then the USER environment variable is used in its place.
+///
+/// The directory containing the keys is determined using the HOME
+/// environment variable:
+///
+///   $HOME/.sawtooth/keys/
+///
+/// # Arguments
+///
+/// * `name` - The name of the public key, which is used to construct the
+///            key's filename
+///
+/// # Errors
+///
+/// If a signing error occurs, a CliError::SigningError is returned.
+///
+/// If a HOME or USER environment variable is required but cannot be
+/// retrieved from the environment, a CliError::VarError is returned.
+pub fn load_public_key(name: Option<&str>) -> Result<Secp256k1PublicKey, CliError> {
+    let username: String = name
+        .map(String::from)
+        .ok_or_else(|| env::var("USER"))
+        .or_else(|_| get_current_username().ok_or(0))
+        .map_err(|_| {
+            CliError::UserError(String::from(
+                "Could not load signing key: unable to determine username",
+            ))
+        })?;
+
+    // Nightly has deprecated env::home_dir() and suggests using https://crates.io/crates/dirs instead
+    #[allow(deprecated)]
+    let public_key_filename = env::home_dir()
+        .ok_or_else(|| {
+            CliError::UserError(String::from(
+                "Could not load signing key: unable to determine home directory",
+            ))
+        })
+        .and_then(|mut p| {
+            p.push(".sawtooth");
+            p.push("keys");
+            p.push(format!("{}.pub", &username));
+            Ok(p)
+        })?;
+
+    if !public_key_filename.as_path().exists() {
+        return Err(CliError::UserError(format!(
+            "No such key file: {}",
+            public_key_filename.display()
+        )));
+    }
+
+    let mut f = File::open(&public_key_filename)?;
+
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)?;
+
+    let key_str = match contents.lines().next() {
+        Some(k) => k,
+        None => {
+            return Err(CliError::UserError(format!(
+                "Empty key file: {}",
+                public_key_filename.display()
+            )));
+        }
+    };
+
+    Ok(Secp256k1PublicKey::from_hex(&key_str)?)
 }
