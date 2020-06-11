@@ -53,6 +53,7 @@ fn main() {
         ("certificate", Some(args)) => commands::certificate::run(args),
         ("standard", Some(args)) => commands::standard::run(args),
         ("accreditation", Some(args)) => commands::accreditation::run(args),
+        ("assertion", Some(args)) => commands::assertion::run(args),
         _ => Err(CliError::InvalidInputError(String::from(
             "Invalid subcommand. Pass --help for usage",
         ))),
@@ -166,6 +167,25 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg key: -k --key +takes_value "Signing key name")
                 (@arg url: --url +takes_value "URL to the Sawtooth REST API")
             )
+        )
+        (@subcommand assertion =>
+          (about: "manage an assertion")
+          (@subcommand create =>
+              (about: "create an assertion")
+              (@arg name: +required "Name of the organization to be created")
+              (@arg assertion_type: +required "Type of the assertion to be created:
+              1 (FACTORY), 2 (CERTIFICATE), or 3 (STANDARD)")
+              (@arg contact_name: +required "Name of the organization's contact")
+              (@arg contact_phone_number: +required "Phone number of the organization's contact")
+              (@arg contact_language_code: +required "Language of the organization's contact")
+              (@arg street_address: --street_address +takes_value "Street address of the organization's contact")
+              (@arg city: --city +takes_value "City of the factory")
+              (@arg state_province: --state_province +takes_value "State or province of the factory")
+              (@arg country: --country +takes_value "Country of the factory")
+              (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
+              (@arg key: -k --key +takes_value "Signing key name")
+              (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+          )
         )
     );
     app.get_matches()
