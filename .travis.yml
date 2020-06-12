@@ -1,11 +1,11 @@
 language: rust
 rust:
-    - 1.30.0
+    - 1.44.0
 
 before_install:
     # Install ZMQ
     - sudo apt-get update 
-    - sudo apt-get install -y libzmq3-dev unzip protobuf-compiler nodejs npm
+    - sudo apt-get install -y libzmq3-dev unzip protobuf-compiler
     - sudo apt-get clean
     # Install protoc for protoc-rust crate (automate protobuf generation)
     - curl -OLsS https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
@@ -15,10 +15,7 @@ before_install:
     - sudo mv protoc3/bin/* /usr/local/bin/
     - sudo mv protoc3/include/* /usr/local/include/
     - rm -rf protoc3/
-    # Install latest stable/nightly of rust toolchain & linter (rustfmt)
-    - rustup toolchain install nightly # Nightly needed for rocket rest api
-    - rustup component add rustfmt --toolchain nightly
-    - rustup default nightly
+    - rustup component add rustfmt
 
 before_script:
     - echo $TRAVIS_COMMIT
