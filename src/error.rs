@@ -36,18 +36,6 @@ pub enum CliError {
 }
 
 impl StdError for CliError {
-    fn description(&self) -> &str {
-        match *self {
-            CliError::UserError(ref s) => &s,
-            CliError::IoError(ref err) => err.description(),
-            CliError::SigningError(ref err) => err.description(),
-            CliError::ProtobufError(ref err) => err.description(),
-            CliError::HyperError(ref err) => err.description(),
-            CliError::InvalidTransactionError(ref s) => &s,
-            CliError::InvalidInputError(ref s) => &s,
-        }
-    }
-
     fn cause(&self) -> Option<&dyn StdError> {
         match *self {
             CliError::UserError(ref _s) => None,
@@ -66,9 +54,9 @@ impl std::fmt::Display for CliError {
         match *self {
             CliError::UserError(ref s) => write!(f, "Error: {}", s),
             CliError::IoError(ref err) => write!(f, "IoError: {}", err),
-            CliError::SigningError(ref err) => write!(f, "SigningError: {}", err.description()),
-            CliError::ProtobufError(ref err) => write!(f, "ProtobufError: {}", err.description()),
-            CliError::HyperError(ref err) => write!(f, "HyperError: {}", err.description()),
+            CliError::SigningError(ref err) => write!(f, "SigningError: {}", err.to_string()),
+            CliError::ProtobufError(ref err) => write!(f, "ProtobufError: {}", err.to_string()),
+            CliError::HyperError(ref err) => write!(f, "HyperError: {}", err.to_string()),
             CliError::InvalidTransactionError(ref s) => write!(f, "InvalidTransactionError: {}", s),
             CliError::InvalidInputError(ref s) => write!(f, "InvalidInput: {}", s),
         }
