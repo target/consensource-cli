@@ -20,18 +20,24 @@ const SECP_256K1: &str = "secp256k1";
 
 pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     match args.subcommand() {
-        ("create", Some(args)) => run_create_command(args),
+        ("factory", Some(args)) => match args.subcommand() {
+            ("create", Some(args)) => run_factory_create_command(args),
+            _ => Err(CliError::InvalidInputError(String::from(
+                "Invalid subcommand. Pass --help for usage",
+            ))),
+        },
         _ => Err(CliError::InvalidInputError(String::from(
             "Invalid subcommand. Pass --help for usage",
         ))),
     }
 }
 
-fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     // Extract arg values
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
     let name = args.value_of("name").unwrap();
+    let asserter_organization_id = args.value_of("asserter_organization_id").unwrap();
     let contact_name = args.value_of("contact_name").unwrap();
     let contact_phone_number = args.value_of("contact_phone_number").unwrap();
     let contact_language_code = args.value_of("contact_language_code").unwrap();
@@ -42,66 +48,72 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     // Generate new assertion ID
     let assertion_id = Uuid::new_v4().to_string();
 
-    // Check org assertion type
-    let assertion_payload =
-        match args.value_of("assertion_type").unwrap() {
-            "1" => {
-                // Validate factory-specifc args
-                match street {
-                    None => Err(CliError::InvalidInputError(format!(
-                        "A street address is required for a factory"
-                    ))),
-                    val => Ok(val),
-                }?;
-                match city {
-                    None => Err(CliError::InvalidInputError(format!(
-                        "A city is required for a factory"
-                    ))),
-                    val => Ok(val),
-                }?;
-                match country {
-                    None => Err(CliError::InvalidInputError(format!(
-                        "A country is required for a factory"
-                    ))),
-                    val => Ok(val),
-                }?;
-                let create_org_payload = create_organization_payload(
-                    &(Uuid::new_v4().to_string()),
-                    Organization_Type::FACTORY,
-                    name,
-                    contact_name,
-                    contact_phone_number,
-                    contact_language_code,
-                    street.unwrap(),
-                    city.unwrap(),
-                    country.unwrap(),
-                );
-                // Create the assertion payload with the org data
-                create_factory_assertion_payload(&assertion_id, create_org_payload)
-            }
-            "2" => {
-                return Err(CliError::InvalidInputError(String::from(
-                    "Certificate assertions are not yet supported",
-                )))
-            }
-            "3" => {
-                return Err(CliError::InvalidInputError(String::from(
-                    "Standards assertions are not yet supported",
-                )))
-            }
-            _ => return Err(CliError::InvalidInputError(String::from(
-                "Invalid assertion type. Only FACTORY (1) assertions are supported at this time",
-            ))),
-        };
+    // Validate factory-specifc args
+    match street {
+        None => Err(CliError::InvalidInputError(format!(
+            "A street address is required for a factory"
+        ))),
+        val => Ok(val),
+    }?;
+    match city {
+        None => Err(CliError::InvalidInputError(format!(
+            "A city is required for a factory"
+        ))),
+        val => Ok(val),
+    }?;
+    match country {
+        None => Err(CliError::InvalidInputError(format!(
+            "A country is required for a factory"
+        ))),
+        val => Ok(val),
+    }?;
 
+    // Build create organization action payload
+    let factory_organization_id = Uuid::new_v4().to_string();
+    let create_org_action_payload = build_create_organization_action_payload(
+        &factory_organization_id,
+        Organization_Type::FACTORY,
+        name,
+        contact_name,
+        contact_phone_number,
+        contact_language_code,
+        street.unwrap(),
+        city.unwrap(),
+        country.unwrap(),
+    );
+
+    let assertion_payload =
+        create_factory_assertion_payload(&assertion_id, create_org_action_payload);
+
+    submit_assertion_transaction(
+        assertion_payload,
+        &assertion_id,
+        &asserter_organization_id,
+        &factory_organization_id,
+        key,
+        url,
+    )
+}
+
+fn submit_assertion_transaction(
+    assertion_payload: CertificateRegistryPayload,
+    assertion_id: &str,
+    asserter_organization_id: &str,
+    factory_organization_id: &str,
+    key: Option<&str>,
+    url: &str,
+) -> Result<(), CliError> {
     let private_key = key::load_signing_key(key)?;
     let context = signing::create_context(SECP_256K1)?;
     let factory = signing::CryptoFactory::new(&*context);
     let signer = factory.new_signer(&private_key);
 
-    let header_input =
-        create_assertion_transaction_addresses(&signer.get_public_key()?.as_hex(), &assertion_id);
-    let header_output = header_input.clone();
+    let (header_input, header_output) = create_assertion_transaction_addresses(
+        &signer,
+        assertion_id,
+        &asserter_organization_id,
+        factory_organization_id,
+    )?;
 
     let txn = create_transaction(&assertion_payload, &signer, header_input, header_output)?;
     let batch = create_batch(txn, &signer)?;
@@ -118,7 +130,10 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
             .status
             .as_ref()
         {
-            "COMMITTED" => break Ok(()),
+            "COMMITTED" => {
+                println!("Assertion {} has been created", assertion_id);
+                break Ok(());
+            }
             "INVALID" => {
                 break Err(CliError::InvalidTransactionError(
                     batch_status.data[0]
@@ -140,7 +155,7 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
-fn create_organization_payload(
+fn build_create_organization_action_payload(
     id: &str,
     organization_type: Organization_Type,
     name: &str,
@@ -177,13 +192,13 @@ fn create_organization_payload(
 
 fn create_factory_assertion_payload(
     assertion_id: &str,
-    create_organization_payload: CreateOrganizationAction,
+    create_organization_action_payload: CreateOrganizationAction,
 ) -> CertificateRegistryPayload {
     let mut assertion = AssertAction::new();
     assertion.set_assertion_id(String::from(assertion_id));
 
     let mut factory_assertion = AssertAction_FactoryAssertion::new();
-    factory_assertion.set_factory(create_organization_payload);
+    factory_assertion.set_factory(create_organization_action_payload);
     assertion.set_new_factory(factory_assertion);
 
     let mut payload = CertificateRegistryPayload::new();
@@ -192,8 +207,39 @@ fn create_factory_assertion_payload(
     payload
 }
 
-fn create_assertion_transaction_addresses(public_key: &str, assertion_id: &str) -> Vec<String> {
-    let agent_address = addressing::make_agent_address(public_key);
+/// Creates a tuple of transaction header input/output addresses
+///
+/// Required inputs
+/// - agent address
+/// - agent's (the asserter's) organization address
+/// - factory organization address
+/// - assertion address
+///
+/// Required outputs:
+/// - factory organization address
+/// - assertion address
+fn create_assertion_transaction_addresses(
+    signer: &signing::Signer,
+    assertion_id: &str,
+    asserter_organization_id: &str,
+    factory_organization_id: &str,
+) -> Result<(Vec<String>, Vec<String>), CliError> {
+    let agent_address = addressing::make_agent_address(&signer.get_public_key()?.as_hex());
+    let asserter_organization_address =
+        addressing::make_organization_address(asserter_organization_id);
+    let factory_organization_address =
+        addressing::make_organization_address(factory_organization_id);
     let assertion_address = addressing::make_assertion_address(assertion_id);
-    vec![agent_address, assertion_address]
+    Ok((
+        vec![
+            agent_address,
+            asserter_organization_address,
+            factory_organization_address.clone(),
+            assertion_address.clone(),
+        ],
+        vec![
+            factory_organization_address.clone(),
+            assertion_address.clone(),
+        ],
+    ))
 }
