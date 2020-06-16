@@ -26,6 +26,18 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
                 "Invalid subcommand. Pass --help for usage",
             ))),
         },
+        ("certificate", Some(args)) => match args.subcommand() {
+            ("create", Some(args)) => run_certificate_create_command(args),
+            _ => Err(CliError::InvalidInputError(String::from(
+                "Invalid subcommand. Pass --help for usage",
+            ))),
+        },
+        ("standard", Some(args)) => match args.subcommand() {
+            ("create", Some(args)) => run_standard_create_command(args),
+            _ => Err(CliError::InvalidInputError(String::from(
+                "Invalid subcommand. Pass --help for usage",
+            ))),
+        },
         _ => Err(CliError::InvalidInputError(String::from(
             "Invalid subcommand. Pass --help for usage",
         ))),
@@ -93,6 +105,18 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
         key,
         url,
     )
+}
+
+fn run_certificate_create_command<'a>(_args: &ArgMatches<'a>) -> Result<(), CliError> {
+    Err(CliError::InvalidInputError(format!(
+        "Certificate assertions are not yet supported"
+    )))
+}
+
+fn run_standard_create_command<'a>(_args: &ArgMatches<'a>) -> Result<(), CliError> {
+    Err(CliError::InvalidInputError(format!(
+        "Standard assertions are not yet supported"
+    )))
 }
 
 fn submit_assertion_transaction(
