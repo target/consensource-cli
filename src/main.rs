@@ -169,12 +169,13 @@ fn parse_args<'a>() -> ArgMatches<'a> {
             )
         )
         (@subcommand assertion =>
-          (about: "manage an assertion")
-          (@subcommand create =>
-              (about: "create an assertion")
+          (about: "manage an assertion by type")
+          (@subcommand factory =>
+            (about: "manage a factory assertion")
+            (@subcommand create =>
+              (about: "create an factory assertion")
+              (@arg asserter_organization_id: +required "ID of the organization the asserter belongs to")
               (@arg name: +required "Name of the organization to be created")
-              (@arg assertion_type: +required "Type of the assertion to be created:
-              1 (FACTORY), 2 (CERTIFICATE), or 3 (STANDARD)")
               (@arg contact_name: +required "Name of the organization's contact")
               (@arg contact_phone_number: +required "Phone number of the organization's contact")
               (@arg contact_language_code: +required "Language of the organization's contact")
@@ -185,6 +186,41 @@ fn parse_args<'a>() -> ArgMatches<'a> {
               (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
               (@arg key: -k --key +takes_value "Signing key name")
               (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+            )
+          )
+          (@subcommand certificate =>
+            (about: "manage a certificate assertion")
+            (@subcommand create =>
+              (about: "create an certificate assertion")
+              (@arg name: +required "Name of the organization to be created")
+              (@arg contact_name: +required "Name of the organization's contact")
+              (@arg contact_phone_number: +required "Phone number of the organization's contact")
+              (@arg contact_language_code: +required "Language of the organization's contact")
+              (@arg street_address: --street_address +takes_value "Street address of the organization's contact")
+              (@arg city: --city +takes_value "City of the factory")
+              (@arg state_province: --state_province +takes_value "State or province of the factory")
+              (@arg country: --country +takes_value "Country of the factory")
+              (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
+              (@arg key: -k --key +takes_value "Signing key name")
+              (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+            )
+          )
+          (@subcommand standard =>
+            (about: "manage a standards assertion")
+            (@subcommand create =>
+              (about: "create an standards assertion")
+              (@arg name: +required "Name of the organization to be created")
+              (@arg contact_name: +required "Name of the organization's contact")
+              (@arg contact_phone_number: +required "Phone number of the organization's contact")
+              (@arg contact_language_code: +required "Language of the organization's contact")
+              (@arg street_address: --street_address +takes_value "Street address of the organization's contact")
+              (@arg city: --city +takes_value "City of the factory")
+              (@arg state_province: --state_province +takes_value "State or province of the factory")
+              (@arg country: --country +takes_value "Country of the factory")
+              (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
+              (@arg key: -k --key +takes_value "Signing key name")
+              (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+            )
           )
         )
     );

@@ -45,8 +45,9 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
         "1" => Ok(Organization_Type::CERTIFYING_BODY),
         "2" => Ok(Organization_Type::STANDARDS_BODY),
         "3" => Ok(Organization_Type::FACTORY),
-        "4" => Err(CliError::InvalidInputError(format!(
-            "Organization type 4 is not yet implemented. Valid types are: \n {org_types}",
+        "4" => Ok(Organization_Type::INGESTION),
+        "5" => Err(CliError::InvalidInputError(format!(
+            "Organization type 5 is not yet implemented. Valid types are: \n {org_types}",
             org_types = valid_org_types
         ))),
         other => Err(CliError::UserError(format!(
@@ -115,7 +116,10 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
             .status
             .as_ref()
         {
-            "COMMITTED" => break Ok(()),
+            "COMMITTED" => {
+                println!("Organization {} has been created", org_id);
+                break Ok(());
+            }
             "INVALID" => {
                 break Err(CliError::InvalidTransactionError(
                     org_status.data[0]
