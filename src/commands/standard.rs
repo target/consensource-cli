@@ -76,7 +76,10 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
             .status
             .as_ref()
         {
-            "COMMITTED" => break Ok(()),
+            "COMMITTED" => {
+                println!("Standard {} {} has been created", name, version);
+                break Ok(());
+            }
             "INVALID" => {
                 break Err(CliError::InvalidTransactionError(
                     status.data[0]
