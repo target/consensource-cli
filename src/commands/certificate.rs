@@ -99,7 +99,10 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
             .status
             .as_ref()
         {
-            "COMMITTED" => break Ok(()),
+            "COMMITTED" => {
+                println!("Certificate {} has been issued", cert_id);
+                break Ok(());
+            }
             "INVALID" => {
                 break Err(CliError::InvalidTransactionError(
                     batch_status.data[0]
