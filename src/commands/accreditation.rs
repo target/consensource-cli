@@ -88,7 +88,13 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
             .status
             .as_ref()
         {
-            "COMMITTED" => break Ok(()),
+            "COMMITTED" => {
+                println!(
+                    "Accredited standards body {} with standard {} from {} to {}",
+                    standard_id, standard_id, valid_from, valid_to
+                );
+                break Ok(());
+            }
             "INVALID" => {
                 break Err(CliError::InvalidTransactionError(
                     status.data[0]
