@@ -1,4 +1,4 @@
-FROM target/consensource-rust:cli-1.30
+FROM target/consensource-rust:cli-stable
 
 COPY . /cli
 WORKDIR cli
