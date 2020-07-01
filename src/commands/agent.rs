@@ -48,7 +48,8 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     let batch = create_batch(txn, &signer)?;
     let batch_list = create_batch_list_from_one(batch);
 
-    agent_status_handler(url, &batch_list)
+    let public_key = context.get_public_key(&private_key)?.as_hex();
+    agent_status_handler(&public_key, "create", url, &batch_list)
 }
 
 fn run_authorize_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
@@ -76,10 +77,15 @@ fn run_authorize_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     let batch = create_batch(txn, &signer)?;
     let batch_list = create_batch_list_from_one(batch);
 
-    agent_status_handler(url, &batch_list)
+    agent_status_handler(&public_key, "authorize", url, &batch_list)
 }
 
-fn agent_status_handler(url: &str, batch_list: &BatchList) -> Result<(), CliError> {
+fn agent_status_handler(
+    public_key: &str,
+    action: &str,
+    url: &str,
+    batch_list: &BatchList,
+) -> Result<(), CliError> {
     let mut agent_status = submit::submit_batch_list(url, batch_list)
         .and_then(|link| submit::wait_for_status(url, &link))?;
 
@@ -91,7 +97,10 @@ fn agent_status_handler(url: &str, batch_list: &BatchList) -> Result<(), CliErro
             .status
             .as_ref()
         {
-            "COMMITTED" => break Ok(()),
+            "COMMITTED" => {
+                println!("Agent {} has been {}d", public_key, action);
+                break Ok(());
+            }
             "INVALID" => {
                 break Err(CliError::InvalidTransactionError(
                     agent_status.data[0]
