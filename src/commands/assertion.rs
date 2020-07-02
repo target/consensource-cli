@@ -55,7 +55,9 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
     let contact_language_code = args.value_of("contact_language_code").unwrap();
     let street = args.value_of("street_address");
     let city = args.value_of("city");
+    let state_province = args.value_of("state_province");
     let country = args.value_of("country");
+    let postal_code = args.value_of("postal_code");
 
     // Generate new assertion ID
     let assertion_id = Uuid::new_v4().to_string();
@@ -91,7 +93,9 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
         contact_language_code,
         street.unwrap(),
         city.unwrap(),
+        state_province.unwrap(),
         country.unwrap(),
+        postal_code.unwrap(),
     );
 
     let assertion_payload =
@@ -188,7 +192,9 @@ fn build_create_organization_action_payload(
     contact_language_code: &str,
     street: &str,
     city: &str,
+    state_province: &str,
     country: &str,
+    postal_code: &str,
 ) -> CreateOrganizationAction {
     let mut payload = CreateOrganizationAction::new();
     payload.set_id(String::from(id));
@@ -205,9 +211,9 @@ fn build_create_organization_action_payload(
         let mut address = Factory_Address::new();
         address.set_street_line_1(String::from(street));
         address.set_city(String::from(city));
-        address.set_state_province("test".to_string());
+        address.set_state_province(String::from(state_province));
         address.set_country(String::from(country));
-        address.set_postal_code("test".to_string());
+        address.set_postal_code(String::from(postal_code));
         payload.set_address(address);
     }
 
