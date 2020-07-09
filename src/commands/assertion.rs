@@ -93,9 +93,9 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
         contact_language_code,
         street.unwrap(),
         city.unwrap(),
-        state_province.unwrap(),
+        state_province,
         country.unwrap(),
-        postal_code.unwrap(),
+        postal_code,
     );
 
     let assertion_payload =
@@ -192,9 +192,9 @@ fn build_create_organization_action_payload(
     contact_language_code: &str,
     street: &str,
     city: &str,
-    state_province: &str,
+    state_province: Option<&str>,
     country: &str,
-    postal_code: &str,
+    postal_code: Option<&str>,
 ) -> CreateOrganizationAction {
     let mut payload = CreateOrganizationAction::new();
     payload.set_id(String::from(id));
@@ -211,9 +211,13 @@ fn build_create_organization_action_payload(
         let mut address = Factory_Address::new();
         address.set_street_line_1(String::from(street));
         address.set_city(String::from(city));
-        address.set_state_province(String::from(state_province));
         address.set_country(String::from(country));
-        address.set_postal_code(String::from(postal_code));
+        if let Some(state_province) = state_province {
+            address.set_state_province(String::from(state_province));
+        }
+        if let Some(postal_code) = postal_code {
+            address.set_postal_code(String::from(postal_code));
+        }
         payload.set_address(address);
     }
 
