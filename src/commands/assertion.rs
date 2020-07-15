@@ -59,6 +59,9 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
     let country = args.value_of("country");
     let postal_code = args.value_of("postal_code");
 
+    let factory_uuid = Uuid::new_v4().to_string();
+    let factory_organization_id = args.value_of("factory_id").unwrap_or(&factory_uuid);
+
     // Generate new assertion ID
     let assertion_id = Uuid::new_v4().to_string();
 
@@ -83,7 +86,6 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
     }?;
 
     // Build create organization action payload
-    let factory_organization_id = Uuid::new_v4().to_string();
     let create_org_action_payload = build_create_organization_action_payload(
         &factory_organization_id,
         Organization_Type::FACTORY,

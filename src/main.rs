@@ -184,6 +184,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
               (@arg state_province: --state_province +takes_value "State or province of the factory")
               (@arg country: --country +takes_value "Country of the factory")
               (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
+              (@arg factory_id: --factory_id +takes_value "Unique id to give the factory")
               (@arg key: -k --key +takes_value "Signing key name")
               (@arg url: --url +takes_value "URL to the Sawtooth REST API")
             )
