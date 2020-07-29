@@ -39,17 +39,14 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
 
-    let valid_org_types = "1 - CERTIFYING_BODY \n 2 - STANDARDS_BODY \n 3 - FACTORY";
+    let valid_org_types =
+        "1 - CERTIFYING_BODY \n 2 - STANDARDS_BODY \n 3 - FACTORY \n 4 - INGESTION";
 
     let organization_type = match args.value_of("org_type").unwrap() {
         "1" => Ok(Organization_Type::CERTIFYING_BODY),
         "2" => Ok(Organization_Type::STANDARDS_BODY),
         "3" => Ok(Organization_Type::FACTORY),
         "4" => Ok(Organization_Type::INGESTION),
-        "5" => Err(CliError::InvalidInputError(format!(
-            "Organization type 5 is not yet implemented. Valid types are: \n {org_types}",
-            org_types = valid_org_types
-        ))),
         other => Err(CliError::UserError(format!(
             "Invalid organization type: {:?}. Valid types are: \n {org_types}",
             other,
