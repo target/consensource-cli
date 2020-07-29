@@ -109,7 +109,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (about: "create an organization")
                 (@arg name: +required "Name of the organization to be created")
                 (@arg org_type: +required "Type of the organization to be created:
-                1 (CERTIFYING_BODY), 2 (STANDARDS_BODY), or 3 (FACTORY)")
+                1 (CERTIFYING_BODY), 2 (STANDARDS_BODY), 3 (FACTORY), or 4 (INGESTION)")
                 (@arg contact_name: +required "Name of the organization's contact")
                 (@arg contact_phone_number: +required "Phone number of the organization's contact")
                 (@arg contact_language_code: +required "Language of the organization's contact")
