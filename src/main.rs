@@ -80,7 +80,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (about: "create an agent")
                 (@arg name: +required "Name of the agent to be created")
                 (@arg key: -k --key +takes_value "Signing key name")
-                (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
             (@subcommand authorize =>
                 (about: "authorize an agent")
@@ -88,7 +88,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg org_id: +required "Organization agent is associated with")
                 (@arg role: +required "Role of the agent: 1 (ADMIN) or 2 (TRANSACTOR)")
                 (@arg key: -k --key +takes_value "Signing key of the admin doing the authoriation")
-                (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
         )
 
@@ -117,7 +117,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg city: --city +takes_value "City of the factory")
                 (@arg country: --country +takes_value "Country of the factory")
                 (@arg key: -k --key +takes_value "Signing key name")
-                (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
         )
         (@subcommand certificate =>
@@ -138,7 +138,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg valid_from: +required "Start timestamp of the certificate")
                 (@arg valid_to: +required "End timestamp of the certificate")
                 (@arg key: -k --key +takes_value "Signing key name")
-                (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
         )
         (@subcommand standard =>
@@ -152,7 +152,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg organization_id: +required "Id of the organization creating the standard")
                 (@arg approval_date: +required "Date the standard is officially issued. Format: seconds since Unix epoch")
                 (@arg key: -k --key +takes_value "Signing key name")
-                (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
         )
         (@subcommand accreditation =>
@@ -165,7 +165,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg valid_from: +required "Time the accreditation was issued. Format: seconds since Unix epoch")
                 (@arg valid_to: +required "When the accreditation will become invalid. Format: seconds since Unix epoch")
                 (@arg key: -k --key +takes_value "Signing key name")
-                (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
         )
         (@subcommand assertion =>
@@ -186,7 +186,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
               (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
               (@arg factory_id: --factory_id +takes_value "Unique id to give the factory")
               (@arg key: -k --key +takes_value "Signing key name")
-              (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+              (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
           )
           (@subcommand certificate =>
@@ -203,7 +203,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
               (@arg country: --country +takes_value "Country of the factory")
               (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
               (@arg key: -k --key +takes_value "Signing key name")
-              (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+              (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
           )
           (@subcommand standard =>
@@ -220,7 +220,7 @@ fn parse_args<'a>() -> ArgMatches<'a> {
               (@arg country: --country +takes_value "Country of the factory")
               (@arg postal_code: --postal_code +takes_value "Postal code of the factory")
               (@arg key: -k --key +takes_value "Signing key name")
-              (@arg url: --url +takes_value "URL to the Sawtooth REST API")
+              (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
           )
         )
