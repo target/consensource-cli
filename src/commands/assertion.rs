@@ -1,10 +1,12 @@
 use clap::ArgMatches;
 
 use common::addressing;
+use common::proto::certificate::Certificate_CertificateData;
 use common::proto::organization::{Factory_Address, Organization_Contact, Organization_Type};
 use common::proto::payload::{
     AssertAction, AssertAction_FactoryAssertion, CertificateRegistryPayload,
     CertificateRegistryPayload_Action, CreateOrganizationAction, CreateStandardAction,
+    IssueCertificateAction, IssueCertificateAction_Source,
 };
 
 use error::CliError;
@@ -113,10 +115,72 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
     )
 }
 
-fn run_certificate_create_command<'a>(_args: &ArgMatches<'a>) -> Result<(), CliError> {
-    Err(CliError::InvalidInputError(format!(
-        "Certificate assertions are not yet supported"
-    )))
+fn run_certificate_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+    // Extract system arguments
+    let key = args.value_of("key");
+    let url = args.value_of("url").unwrap_or("http://localhost:9009");
+
+    // Extract required arguments
+    let asserter_organization_id = args.value_of("asserter_organization_id").unwrap();
+    let factory_id = args.value_of("factory_id").unwrap();
+    let valid_from = args.value_of("valid_from").unwrap();
+    let valid_to = args.value_of("valid_to").unwrap();
+    let standard_id = args.value_of("standard_id").unwrap();
+
+    // Extract optional arguments
+    // We use randomly generated uuid if no id was supplied
+    let certificate_uuid = Uuid::new_v4().to_string();
+    let certificate_id = args.value_of("id").unwrap_or(&certificate_uuid);
+    let cert_data: Result<Vec<Certificate_CertificateData>, CliError> = args
+        .values_of("cert_data")
+        .map(|values| {
+            values
+                .map(|cert_data| {
+                    let cd: Vec<&str> = cert_data.split(':').collect();
+                    match (cd.get(0), cd.get(1)) {
+                        (Some(field), Some(data)) => {
+                            let mut ccd: Certificate_CertificateData =
+                                Certificate_CertificateData::new();
+                            ccd.set_field(field.to_string());
+                            ccd.set_data(data.to_string());
+                            Ok(ccd)
+                        }
+                        _ => Err(CliError::InvalidInputError(String::from(
+                            "Invalid format for cert_data",
+                        ))),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_else(|| Ok(vec![]));
+
+    // Build create_certificate_action payload
+    let create_certificate_action_payload = build_create_certificate_action_payload(
+        &certificate_id,
+        factory_id,
+        standard_id,
+        cert_data?,
+        valid_from,
+        valid_to,
+    );
+
+    // Generate an assertion ID for this assertion
+    // Create assertion payload to be submitted
+    let assertion_id = Uuid::new_v4().to_string();
+    let assertion_payload =
+        create_certificate_assertion_payload(&assertion_id, create_certificate_action_payload);
+
+    // Submit assertion payload as a transaction
+    submit_certificate_assertion_transaction(
+        assertion_payload,
+        &assertion_id,
+        &asserter_organization_id,
+        &certificate_id,
+        factory_id,
+        standard_id,
+        key,
+        url,
+    )
 }
 
 fn run_standard_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
@@ -162,168 +226,6 @@ fn run_standard_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError
         key,
         url,
     )
-}
-
-fn build_create_organization_action_payload(
-    id: &str,
-    organization_type: Organization_Type,
-    name: &str,
-    contact_name: &str,
-    contact_phone_number: &str,
-    contact_language_code: &str,
-    street: &str,
-    city: &str,
-    state_province: Option<&str>,
-    country: &str,
-    postal_code: Option<&str>,
-) -> CreateOrganizationAction {
-    let mut payload = CreateOrganizationAction::new();
-    payload.set_id(String::from(id));
-    payload.set_organization_type(organization_type);
-    payload.set_name(String::from(name));
-
-    let mut new_contact = Organization_Contact::new();
-    new_contact.set_name(String::from(contact_name));
-    new_contact.set_phone_number(String::from(contact_phone_number));
-    new_contact.set_language_code(String::from(contact_language_code));
-    payload.set_contacts(protobuf::RepeatedField::from_vec(vec![new_contact]));
-
-    if organization_type == Organization_Type::FACTORY {
-        let mut address = Factory_Address::new();
-        address.set_street_line_1(String::from(street));
-        address.set_city(String::from(city));
-        address.set_country(String::from(country));
-        if let Some(state_province) = state_province {
-            address.set_state_province(String::from(state_province));
-        }
-        if let Some(postal_code) = postal_code {
-            address.set_postal_code(String::from(postal_code));
-        }
-        payload.set_address(address);
-    }
-
-    payload
-}
-
-fn build_create_standard_action_payload(
-    standard_id: &str,
-    standard_name: &str,
-    version: &str,
-    description: &str,
-    link: &str,
-    approval_date: u64,
-) -> CreateStandardAction {
-    let mut payload = CreateStandardAction::new();
-    payload.set_standard_id(String::from(standard_id));
-    payload.set_name(String::from(standard_name));
-    payload.set_version(String::from(version));
-    payload.set_description(String::from(description));
-    payload.set_link(String::from(link));
-    payload.set_approval_date(approval_date);
-
-    payload
-}
-
-fn create_factory_assertion_payload(
-    assertion_id: &str,
-    create_organization_action_payload: CreateOrganizationAction,
-) -> CertificateRegistryPayload {
-    let mut assertion = AssertAction::new();
-    assertion.set_assertion_id(String::from(assertion_id));
-
-    let mut factory_assertion = AssertAction_FactoryAssertion::new();
-    factory_assertion.set_factory(create_organization_action_payload);
-    assertion.set_new_factory(factory_assertion);
-
-    let mut payload = CertificateRegistryPayload::new();
-    payload.action = CertificateRegistryPayload_Action::ASSERT_ACTION;
-    payload.set_assert_action(assertion);
-    payload
-}
-
-fn create_standard_assertion_payload(
-    assertion_id: &str,
-    create_standard_action_payload: CreateStandardAction,
-) -> CertificateRegistryPayload {
-    let mut assertion = AssertAction::new();
-    assertion.set_assertion_id(String::from(assertion_id));
-    assertion.set_new_standard(create_standard_action_payload);
-
-    let mut payload = CertificateRegistryPayload::new();
-    payload.action = CertificateRegistryPayload_Action::ASSERT_ACTION;
-    payload.set_assert_action(assertion);
-    payload
-}
-
-/// Creates a tuple of transaction header input/output addresses
-///
-/// Required inputs
-/// - agent address
-/// - agent's (the asserter) organization address
-/// - factory organization address
-/// - assertion address
-///
-/// Required outputs:
-/// - factory organization address
-/// - assertion address
-fn create_factory_assertion_transaction_addresses(
-    signer: &signing::Signer,
-    assertion_id: &str,
-    asserter_organization_id: &str,
-    factory_organization_id: &str,
-) -> Result<(Vec<String>, Vec<String>), CliError> {
-    let agent_address = addressing::make_agent_address(&signer.get_public_key()?.as_hex());
-    let asserter_organization_address =
-        addressing::make_organization_address(asserter_organization_id);
-    let factory_organization_address =
-        addressing::make_organization_address(factory_organization_id);
-    let assertion_address = addressing::make_assertion_address(assertion_id);
-    Ok((
-        vec![
-            agent_address,
-            asserter_organization_address,
-            factory_organization_address.clone(),
-            assertion_address.clone(),
-        ],
-        vec![
-            factory_organization_address.clone(),
-            assertion_address.clone(),
-        ],
-    ))
-}
-
-/// Creates a tuple of transaction header input/output addresses
-/// for submitting a standard create assertion transaction.
-///
-/// Required inputs
-/// - agent address
-/// - agent's (the asserter) organization address
-/// - standard id address
-/// - assertion address
-///
-/// Required outputs:
-/// - standard id address
-/// - assertion address
-fn create_standard_assertion_transaction_addresses(
-    signer: &signing::Signer,
-    assertion_id: &str,
-    asserter_organization_id: &str,
-    standard_id: &str,
-) -> Result<(Vec<String>, Vec<String>), CliError> {
-    let agent_address = addressing::make_agent_address(&signer.get_public_key()?.as_hex());
-    let asserter_organization_address =
-        addressing::make_organization_address(asserter_organization_id);
-    let standard_id_address = addressing::make_standard_address(standard_id);
-    let assertion_address = addressing::make_assertion_address(assertion_id);
-    Ok((
-        vec![
-            agent_address,
-            asserter_organization_address,
-            standard_id_address.clone(),
-            assertion_address.clone(),
-        ],
-        vec![standard_id_address.clone(), assertion_address.clone()],
-    ))
 }
 
 fn submit_factory_assertion_transaction(
@@ -428,6 +330,311 @@ fn submit_standard_assertion_transaction(
                 println!(
                     "Assertion {} has been created for standard {}",
                     assertion_id, standard_id
+                );
+                break Ok(());
+            }
+            "INVALID" => {
+                break Err(CliError::InvalidTransactionError(
+                    batch_status.data[0]
+                        .invalid_transactions
+                        .get(0)
+                        .expect("Expected a transaction status, but was not found")
+                        .message
+                        .clone(),
+                ));
+            }
+            // "PENDING" case where we should recheck
+            // "UNKNOWN" case where we should recheck
+            // "STATUS_UNSET" case where we should recheck
+            _ => {
+                thread::sleep(time::Duration::from_millis(3000));
+                batch_status = submit::wait_for_status(url, &batch_status.link)?;
+            }
+        }
+    }
+}
+
+fn build_create_organization_action_payload(
+    id: &str,
+    organization_type: Organization_Type,
+    name: &str,
+    contact_name: &str,
+    contact_phone_number: &str,
+    contact_language_code: &str,
+    street: &str,
+    city: &str,
+    state_province: Option<&str>,
+    country: &str,
+    postal_code: Option<&str>,
+) -> CreateOrganizationAction {
+    let mut payload = CreateOrganizationAction::new();
+    payload.set_id(String::from(id));
+    payload.set_organization_type(organization_type);
+    payload.set_name(String::from(name));
+
+    let mut new_contact = Organization_Contact::new();
+    new_contact.set_name(String::from(contact_name));
+    new_contact.set_phone_number(String::from(contact_phone_number));
+    new_contact.set_language_code(String::from(contact_language_code));
+    payload.set_contacts(protobuf::RepeatedField::from_vec(vec![new_contact]));
+
+    if organization_type == Organization_Type::FACTORY {
+        let mut address = Factory_Address::new();
+        address.set_street_line_1(String::from(street));
+        address.set_city(String::from(city));
+        address.set_country(String::from(country));
+        if let Some(state_province) = state_province {
+            address.set_state_province(String::from(state_province));
+        }
+        if let Some(postal_code) = postal_code {
+            address.set_postal_code(String::from(postal_code));
+        }
+        payload.set_address(address);
+    }
+
+    payload
+}
+
+fn build_create_standard_action_payload(
+    standard_id: &str,
+    standard_name: &str,
+    version: &str,
+    description: &str,
+    link: &str,
+    approval_date: u64,
+) -> CreateStandardAction {
+    let mut payload = CreateStandardAction::new();
+    payload.set_standard_id(String::from(standard_id));
+    payload.set_name(String::from(standard_name));
+    payload.set_version(String::from(version));
+    payload.set_description(String::from(description));
+    payload.set_link(String::from(link));
+    payload.set_approval_date(approval_date);
+
+    payload
+}
+
+fn build_create_certificate_action_payload(
+    certificate_id: &str,
+    factory_id: &str,
+    standard_id: &str,
+    cert_data: Vec<Certificate_CertificateData>,
+    valid_from: &str,
+    valid_to: &str,
+) -> IssueCertificateAction {
+    let mut payload = IssueCertificateAction::new();
+    payload.set_id(String::from(certificate_id));
+    payload.set_factory_id(String::from(factory_id));
+    payload.set_source(IssueCertificateAction_Source::INDEPENDENT);
+    payload.set_certificate_data(::protobuf::RepeatedField::from_vec(cert_data));
+    payload.set_valid_from(valid_from.parse().unwrap());
+    payload.set_valid_to(valid_to.parse().unwrap());
+    payload.set_standard_id(String::from(standard_id));
+
+    payload
+}
+
+fn create_factory_assertion_payload(
+    assertion_id: &str,
+    create_organization_action_payload: CreateOrganizationAction,
+) -> CertificateRegistryPayload {
+    let mut assertion = AssertAction::new();
+    assertion.set_assertion_id(String::from(assertion_id));
+
+    let mut factory_assertion = AssertAction_FactoryAssertion::new();
+    factory_assertion.set_factory(create_organization_action_payload);
+    assertion.set_new_factory(factory_assertion);
+
+    let mut payload = CertificateRegistryPayload::new();
+    payload.action = CertificateRegistryPayload_Action::ASSERT_ACTION;
+    payload.set_assert_action(assertion);
+    payload
+}
+
+fn create_standard_assertion_payload(
+    assertion_id: &str,
+    create_standard_action_payload: CreateStandardAction,
+) -> CertificateRegistryPayload {
+    let mut assertion = AssertAction::new();
+    assertion.set_assertion_id(String::from(assertion_id));
+    assertion.set_new_standard(create_standard_action_payload);
+
+    let mut payload = CertificateRegistryPayload::new();
+    payload.action = CertificateRegistryPayload_Action::ASSERT_ACTION;
+    payload.set_assert_action(assertion);
+    payload
+}
+
+fn create_certificate_assertion_payload(
+    assertion_id: &str,
+    issue_certificate_action_payload: IssueCertificateAction,
+) -> CertificateRegistryPayload {
+    let mut assertion = AssertAction::new();
+    assertion.set_assertion_id(String::from(assertion_id));
+    assertion.set_new_certificate(issue_certificate_action_payload);
+
+    let mut payload = CertificateRegistryPayload::new();
+    payload.action = CertificateRegistryPayload_Action::ASSERT_ACTION;
+    payload.set_assert_action(assertion);
+    payload
+}
+
+/// Creates a tuple of transaction header input/output addresses
+///
+/// Required inputs
+/// - agent address
+/// - agent's (the asserter) organization address
+/// - factory organization address
+/// - assertion address
+///
+/// Required outputs:
+/// - factory organization address
+/// - assertion address
+fn create_factory_assertion_transaction_addresses(
+    signer: &signing::Signer,
+    assertion_id: &str,
+    asserter_organization_id: &str,
+    factory_organization_id: &str,
+) -> Result<(Vec<String>, Vec<String>), CliError> {
+    let agent_address = addressing::make_agent_address(&signer.get_public_key()?.as_hex());
+    let asserter_organization_address =
+        addressing::make_organization_address(asserter_organization_id);
+    let factory_organization_address =
+        addressing::make_organization_address(factory_organization_id);
+    let assertion_address = addressing::make_assertion_address(assertion_id);
+    Ok((
+        vec![
+            agent_address,
+            asserter_organization_address,
+            factory_organization_address.clone(),
+            assertion_address.clone(),
+        ],
+        vec![
+            factory_organization_address.clone(),
+            assertion_address.clone(),
+        ],
+    ))
+}
+
+/// Creates a tuple of transaction header input/output addresses
+/// for submitting a standard create assertion transaction.
+///
+/// Required inputs
+/// - agent address
+/// - agent's (the asserter) organization address
+/// - standard id address
+/// - assertion address
+///
+/// Required outputs:
+/// - standard id address
+/// - assertion address
+fn create_standard_assertion_transaction_addresses(
+    signer: &signing::Signer,
+    assertion_id: &str,
+    asserter_organization_id: &str,
+    standard_id: &str,
+) -> Result<(Vec<String>, Vec<String>), CliError> {
+    let agent_address = addressing::make_agent_address(&signer.get_public_key()?.as_hex());
+    let asserter_organization_address =
+        addressing::make_organization_address(asserter_organization_id);
+    let standard_id_address = addressing::make_standard_address(standard_id);
+    let assertion_address = addressing::make_assertion_address(assertion_id);
+    Ok((
+        vec![
+            agent_address,
+            asserter_organization_address,
+            standard_id_address.clone(),
+            assertion_address.clone(),
+        ],
+        vec![standard_id_address.clone(), assertion_address.clone()],
+    ))
+}
+
+/// Creates a tuple of transaction header input/output addresses
+/// for submitting a certificate create assertion transaction.
+///
+/// Required inputs
+/// - agent address
+/// - agent's (the asserter) organization address
+/// - certificate id address
+/// - factory id address
+/// - standard id address
+/// - assertion address
+///
+/// Required outputs:
+/// - certificate id address
+/// - assertion address
+fn create_certificate_assertion_transaction_addresses(
+    signer: &signing::Signer,
+    assertion_id: &str,
+    asserter_organization_id: &str,
+    certificate_id: &str,
+    factory_id: &str,
+    standard_id: &str,
+) -> Result<(Vec<String>, Vec<String>), CliError> {
+    let agent_address = addressing::make_agent_address(&signer.get_public_key()?.as_hex());
+    let asserter_organization_address =
+        addressing::make_organization_address(asserter_organization_id);
+    let certificate_id_address = addressing::make_certificate_address(certificate_id);
+    let factory_id_address = addressing::make_organization_address(factory_id);
+    let standard_id_address = addressing::make_standard_address(standard_id);
+    let assertion_address = addressing::make_assertion_address(assertion_id);
+    Ok((
+        vec![
+            agent_address,
+            asserter_organization_address,
+            certificate_id_address.clone(),
+            factory_id_address.clone(),
+            standard_id_address.clone(),
+            assertion_address.clone(),
+        ],
+        vec![certificate_id_address.clone(), assertion_address.clone()],
+    ))
+}
+
+fn submit_certificate_assertion_transaction(
+    assertion_payload: CertificateRegistryPayload,
+    assertion_id: &str,
+    asserter_organization_id: &str,
+    certificate_id: &str,
+    factory_id: &str,
+    standard_id: &str,
+    key: Option<&str>,
+    url: &str,
+) -> Result<(), CliError> {
+    let private_key = key::load_signing_key(key)?;
+    let context = signing::create_context(SECP_256K1)?;
+    let factory = signing::CryptoFactory::new(&*context);
+    let signer = factory.new_signer(&private_key);
+
+    let (header_input, header_output) = create_certificate_assertion_transaction_addresses(
+        &signer,
+        assertion_id,
+        &asserter_organization_id,
+        certificate_id,
+        factory_id,
+        standard_id,
+    )?;
+
+    let txn = create_transaction(&assertion_payload, &signer, header_input, header_output)?;
+    let batch = create_batch(txn, &signer)?;
+    let batch_list = create_batch_list_from_one(batch);
+
+    let mut batch_status = submit::submit_batch_list(url, &batch_list)
+        .and_then(|link| submit::wait_for_status(url, &link))?;
+
+    loop {
+        match batch_status
+            .data
+            .get(0)
+            .expect("Expected a batch status, but was not found")
+            .status
+            .as_ref()
+        {
+            "COMMITTED" => {
+                println!(
+                    "Assertion {} has been created for certificate {}",
+                    assertion_id, certificate_id
                 );
                 break Ok(());
             }
