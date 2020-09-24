@@ -188,6 +188,12 @@ fn parse_args<'a>() -> ArgMatches<'a> {
               (@arg key: -k --key +takes_value "Signing key name")
               (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
+            (@subcommand batch_create =>
+              (about: "create a batch of factory assertions")
+              (@arg filepath: +required "File path to read JSON data of factories")
+              (@arg key: -k --key +takes_value "Signing key name")
+              (@arg url: --url +takes_value "URL to the ConsenSource REST API")
+            )
           )
           (@subcommand certificate =>
             (about: "manage a certificate assertion")

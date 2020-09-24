@@ -134,6 +134,50 @@ pub fn create_batch(txn: Transaction, signer: &Signer) -> Result<Batch, CliError
     Ok(batch)
 }
 
+/// Returns a vector of Batch structs for a given vector of Transaction structs and a Signer
+///
+/// # Arguments
+///
+/// * `txns` - a vector of Transaction structs
+/// * `signer` - the signer to be used to sign the transaction
+///
+/// # Errors
+///
+/// If an error occurs during serialization of a provided Transaction or
+/// internally created `BatchHeader`, a `CliError::ProtobufError` is
+/// returned.
+///
+/// If a signing error occurs, a `CliError::SigningError` is returned.
+pub fn create_batches(txns: Vec<Transaction>, signer: &Signer) -> Result<Vec<Batch>, CliError> {
+    let mut batches: Vec<Batch> = vec![];
+
+    for txn in txns {
+        let batch = match create_batch(txn, signer) {
+            Ok(b) => b,
+            Err(e) => {
+                return Err(CliError::InvalidTransactionError(format!(
+                    "Error creating batch list: {}",
+                    e
+                )));
+            }
+        };
+        batches.push(batch);
+    }
+
+    Ok(batches)
+}
+
+/// Returns a BatchList containing the provided vector Batch structs
+///
+/// # Arguments
+///
+/// * `batches` - a vector Batch structs
+pub fn create_batch_list(batches: Vec<Batch>) -> BatchList {
+    let mut batch_list = BatchList::new();
+    batch_list.set_batches(protobuf::RepeatedField::from_vec(batches));
+    batch_list
+}
+
 /// Returns a BatchList containing the provided Batch
 ///
 /// # Arguments

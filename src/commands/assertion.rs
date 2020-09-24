@@ -12,10 +12,17 @@ use common::proto::payload::{
 use error::CliError;
 
 use key;
+use sawtooth_sdk::messages::batch::BatchList;
+use sawtooth_sdk::messages::transaction::Transaction;
 use sawtooth_sdk::signing;
+use serde_json;
+use std::fs::File;
+use std::io::prelude::*;
 use std::{thread, time};
 use submit;
-use transaction::{create_batch, create_batch_list_from_one, create_transaction};
+use transaction::{
+    create_batch, create_batch_list, create_batch_list_from_one, create_batches, create_transaction,
+};
 use uuid::Uuid;
 
 const SECP_256K1: &str = "secp256k1";
@@ -24,6 +31,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     match args.subcommand() {
         ("factory", Some(args)) => match args.subcommand() {
             ("create", Some(args)) => run_factory_create_command(args),
+            ("batch_create", Some(args)) => run_factory_batch_create_command(args),
             _ => Err(CliError::InvalidInputError(String::from(
                 "Invalid subcommand. Pass --help for usage",
             ))),
@@ -113,6 +121,110 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
         key,
         url,
     )
+}
+
+fn run_factory_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+    // Extract system arguments
+    let key = args.value_of("key");
+    let url = args.value_of("url").unwrap_or("http://localhost:9009");
+
+    // Define uninitialized arguments
+    let mut factory_organization_id: &str;
+    let mut asserter_organization_id: &str;
+    let mut name: &str;
+    let mut contact_name: &str;
+    let mut contact_phone_number: &str;
+    let mut contact_language_code: &str;
+    let mut street_address: &str;
+    let mut city: &str;
+    let mut country: &str;
+    let mut state_province: Option<&str>;
+    let mut postal_code: Option<&str>;
+    let mut assertion_id = String::from("");
+
+    // Read factories from provided JSON batch file
+    let filepath = args.value_of("filepath").unwrap();
+    let mut file = File::open(filepath)?;
+    let mut data: String = String::new();
+    file.read_to_string(&mut data)?;
+    let factories: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+
+    // Create signing key
+    let private_key = key::load_signing_key(key)?;
+    let context = signing::create_context(SECP_256K1)?;
+    let factory = signing::CryptoFactory::new(&*context);
+    let signer = factory.new_signer(&private_key);
+
+    // Loop through map of factories and populate list of transactions
+    println!("Creating transactions for {}", filepath);
+    let mut txn_list: Vec<Transaction> = vec![];
+    for (key, value) in factories.as_object().unwrap() {
+        // Gather information and initialize defined variables from above
+        factory_organization_id = key.as_str();
+        asserter_organization_id = value
+            .get("asserter_organization_id")
+            .unwrap()
+            .as_str()
+            .unwrap();
+        name = value.get("name").unwrap().as_str().unwrap();
+        contact_name = value.get("contact_name").unwrap().as_str().unwrap();
+        contact_phone_number = value.get("contact_phone_number").unwrap().as_str().unwrap();
+        contact_language_code = value
+            .get("contact_language_code")
+            .unwrap()
+            .as_str()
+            .unwrap();
+        street_address = value.get("street_address").unwrap().as_str().unwrap();
+        city = value.get("city").unwrap().as_str().unwrap();
+        country = value.get("country").unwrap().as_str().unwrap();
+        state_province = value.get("state_province").unwrap().as_str();
+        postal_code = value.get("postal_code").unwrap().as_str();
+
+        // Generate new assertion ID
+        assertion_id = Uuid::new_v4().to_string();
+
+        // Build create organization action payload
+        let create_org_action_payload = build_create_organization_action_payload(
+            &factory_organization_id,
+            Organization_Type::FACTORY,
+            name,
+            contact_name,
+            contact_phone_number,
+            contact_language_code,
+            street_address,
+            city,
+            state_province,
+            country,
+            postal_code,
+        );
+
+        // Create cert registry payload
+        let assertion_cert_registry_payload =
+            create_factory_assertion_payload(&assertion_id, create_org_action_payload);
+
+        // Create a transaction address for the transaction
+        let (header_input, header_output) = create_factory_assertion_transaction_addresses(
+            &signer,
+            &assertion_id,
+            &asserter_organization_id,
+            factory_organization_id,
+        )?;
+
+        let txn = create_transaction(
+            &assertion_cert_registry_payload,
+            &signer,
+            header_input,
+            header_output,
+        )?;
+        txn_list.push(txn);
+    }
+
+    println!("Creating batch list for transactions");
+    let batches = create_batches(txn_list, &signer)?;
+    let batch_list = create_batch_list(batches);
+
+    println!("Submitting batch list for processing");
+    submit_factory_assertions_batch_list(String::from(assertion_id), batch_list, url)
 }
 
 fn run_certificate_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
@@ -268,6 +380,47 @@ fn submit_factory_assertion_transaction(
                     "Assertion {} has been created for factory {}",
                     assertion_id, factory_organization_id
                 );
+                break Ok(());
+            }
+            "INVALID" => {
+                break Err(CliError::InvalidTransactionError(
+                    batch_status.data[0]
+                        .invalid_transactions
+                        .get(0)
+                        .expect("Expected a transaction status, but was not found")
+                        .message
+                        .clone(),
+                ));
+            }
+            // "PENDING" case where we should recheck
+            // "UNKNOWN" case where we should recheck
+            // "STATUS_UNSET" case where we should recheck
+            _ => {
+                thread::sleep(time::Duration::from_millis(3000));
+                batch_status = submit::wait_for_status(url, &batch_status.link)?;
+            }
+        }
+    }
+}
+
+fn submit_factory_assertions_batch_list(
+    assertion_id: String,
+    batch_list: BatchList,
+    url: &str,
+) -> Result<(), CliError> {
+    let mut batch_status = submit::submit_batch_list(url, &batch_list)
+        .and_then(|link| submit::wait_for_status(url, &link))?;
+
+    loop {
+        match batch_status
+            .data
+            .get(0)
+            .expect("Expected a batch status, but was not found")
+            .status
+            .as_ref()
+        {
+            "COMMITTED" => {
+                println!("Assertion {} has been created", assertion_id,);
                 break Ok(());
             }
             "INVALID" => {
