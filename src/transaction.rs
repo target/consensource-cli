@@ -171,7 +171,7 @@ pub fn create_batches(txns: Vec<Transaction>, signer: &Signer) -> Result<Vec<Bat
 ///
 /// # Arguments
 ///
-/// * `batches` - a vector Batch structs
+/// * `batches` - a vector of Batch structs
 pub fn create_batch_list(batches: Vec<Batch>) -> BatchList {
     let mut batch_list = BatchList::new();
     batch_list.set_batches(protobuf::RepeatedField::from_vec(batches));
@@ -240,6 +240,46 @@ mod tests {
     }
 
     #[test]
+    fn create_batches_test() {
+        // Create test signer
+        let context =
+            signing::create_context("secp256k1").expect("Failed to create secp256k1 context");
+        let private_key = context
+            .new_random_private_key()
+            .expect("Failed to generate random private key");
+        let factory = CryptoFactory::new(&*context);
+        let signer = factory.new_signer(&*private_key);
+
+        let test_txns =
+            create_test_transactions(&signer).expect("Failed to create test transactions");
+        let batches = create_batches(test_txns, &signer);
+
+        assert!(batches.is_ok());
+    }
+
+    #[test]
+    fn create_batch_list_test() {
+        // Create test signer
+        let context =
+            signing::create_context("secp256k1").expect("Failed to create secp256k1 context");
+        let private_key = context
+            .new_random_private_key()
+            .expect("Failed to generate random private key");
+        let factory = CryptoFactory::new(&*context);
+        let signer = factory.new_signer(&*private_key);
+
+        let test_txns =
+            create_test_transactions(&signer).expect("Failed to create test transactions");
+        let batches = create_batches(test_txns, &signer).expect("Failed to create batches");
+        let batch_list = create_batch_list(batches.clone());
+
+        assert!(batch_list.get_batches().len() > 1);
+
+        assert_eq!(batch_list.get_batches().get(0), batches.get(0));
+        assert_eq!(batch_list.get_batches().get(1), batches.get(1));
+    }
+
+    #[test]
     fn create_batch_list_from_one_test() {
         // Create test signer
         let context =
@@ -290,9 +330,48 @@ mod tests {
         Ok(txn)
     }
 
+    fn create_test_transactions(signer: &Signer) -> Result<Vec<Transaction>, CliError> {
+        let (payload1, inputs1, outputs1) = create_test_payload(signer);
+        let (payload2, inputs2, outputs2) = create_test_payload(signer);
+
+        let txn1 = create_transaction(&payload1, &signer, inputs1, outputs1)
+            .expect("Failed to create transaction");
+        let txn2 = create_transaction(&payload2, &signer, inputs2, outputs2)
+            .expect("Failed to create transaction");
+
+        Ok(vec![txn1, txn2])
+    }
+
     fn create_test_batch(txn: Transaction, signer: &Signer) -> Result<Batch, CliError> {
         let batch = create_batch(txn, signer).expect("Failed to create batch");
 
         Ok(batch)
+    }
+
+    fn create_test_payload(
+        signer: &Signer,
+    ) -> (CertificateRegistryPayload, Vec<String>, Vec<String>) {
+        let since_the_epoch = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let timestamp = since_the_epoch.as_secs();
+
+        let mut agent = CreateAgentAction::new();
+        agent.set_name(String::from("Bob"));
+        agent.set_timestamp(timestamp);
+
+        let mut payload = CertificateRegistryPayload::new();
+        payload.action = CertificateRegistryPayload_Action::CREATE_AGENT;
+        payload.set_create_agent(agent);
+
+        // Create test inputs and outputs
+        let payload = agent::create_agent_payload("test", timestamp);
+        let pub_key = &signer
+            .get_public_key()
+            .expect("Failed to get signer's public key");
+        let inputs = agent::create_agent_transaction_addresses(&pub_key.as_hex());
+        let outputs = inputs.clone();
+
+        (payload, inputs, outputs)
     }
 }
