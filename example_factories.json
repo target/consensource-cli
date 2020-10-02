@@ -1,0 +1,24 @@
+{
+  "test_factory_id_1" : {
+    "asserter_organization_id": "asserter123",
+    "name": "Sword & Sheath Co.",
+    "contact_name": "-",
+    "contact_phone_number": "-",
+    "contact_language_code": "-",
+    "city": "Minas Tirith",
+    "country": "Gondor",
+    "postal_code": "-",
+    "street_address": "123 White Throne Boulevard, Gondor\n54123"
+  },
+  "test_factory_id_2" : {
+    "asserter_organization_id": "asserter123",
+    "name": "Dwarvan Iron Inc.",
+    "contact_name": "-",
+    "contact_phone_number": "-",
+    "contact_language_code": "-",
+    "city": "Minas Morgul ",
+    "country": "Gondor",
+    "postal_code": "-",
+    "street_address": "123 Isildur Drive, Gondor\n54321"
+  }
+}
