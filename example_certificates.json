@@ -1,0 +1,16 @@
+{
+  "certificate_id_1" : {
+    "asserter_organization_id": "asserter_org_id_1",
+    "factory_id": "factory_id_1",
+    "standard_id": "standard_id",
+    "valid_from": "20201012",
+    "valid_to": "20211012"
+  },
+  "certificate_id_2" : {
+    "asserter_organization_id": "asserter_org_id_2",
+    "factory_id": "factory_id_2",
+    "standard_id": "standard_id",
+    "valid_from": "20201012",
+    "valid_to": "20211012"
+  }
+}
