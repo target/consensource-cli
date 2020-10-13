@@ -15,24 +15,17 @@
 //! Contains functions which assist with the creation of Identity Batches and
 //! Transactions
 
+use crate::error::CliError;
+
+use common::addressing;
+use common::proto::payload;
 use crypto::digest::Digest;
 use crypto::sha2::Sha512;
-use protobuf;
-use protobuf::Message;
-use std::time::Instant;
-
-use sawtooth_sdk::messages::batch::Batch;
-use sawtooth_sdk::messages::batch::BatchHeader;
-use sawtooth_sdk::messages::batch::BatchList;
-use sawtooth_sdk::messages::transaction::Transaction;
-use sawtooth_sdk::messages::transaction::TransactionHeader;
+use protobuf::{Message, RepeatedField};
+use sawtooth_sdk::messages::batch::{Batch, BatchHeader, BatchList};
+use sawtooth_sdk::messages::transaction::{Transaction, TransactionHeader};
 use sawtooth_sdk::signing::Signer;
-
-use common::proto::payload;
-use error::CliError;
-
-// Import functions from common/src/addressing.rs
-use common::addressing;
+use std::time::Instant;
 
 /// Creates a nonce appropriate for a TransactionHeader
 fn create_nonce() -> String {
@@ -81,8 +74,8 @@ pub fn create_transaction(
     txn_header.set_signer_public_key(signer.get_public_key()?.as_hex());
     txn_header.set_batcher_public_key(signer.get_public_key()?.as_hex());
 
-    txn_header.set_inputs(protobuf::RepeatedField::from_vec(inputs));
-    txn_header.set_outputs(protobuf::RepeatedField::from_vec(outputs));
+    txn_header.set_inputs(RepeatedField::from_vec(inputs));
+    txn_header.set_outputs(RepeatedField::from_vec(outputs));
 
     let payload_bytes = payload.write_to_bytes()?;
     let mut sha = Sha512::new();
@@ -119,11 +112,9 @@ pub fn create_batch(txn: Transaction, signer: &Signer) -> Result<Batch, CliError
     let mut batch = Batch::new();
     let mut batch_header = BatchHeader::new();
 
-    batch_header.set_transaction_ids(protobuf::RepeatedField::from_vec(vec![txn
-        .header_signature
-        .clone()]));
+    batch_header.set_transaction_ids(RepeatedField::from_vec(vec![txn.header_signature.clone()]));
     batch_header.set_signer_public_key(signer.get_public_key()?.as_hex());
-    batch.set_transactions(protobuf::RepeatedField::from_vec(vec![txn]));
+    batch.set_transactions(RepeatedField::from_vec(vec![txn]));
 
     let batch_header_bytes = batch_header.write_to_bytes()?;
     batch.set_header(batch_header_bytes.clone());
@@ -174,7 +165,7 @@ pub fn create_batches(txns: Vec<Transaction>, signer: &Signer) -> Result<Vec<Bat
 /// * `batches` - a vector of Batch structs
 pub fn create_batch_list(batches: Vec<Batch>) -> BatchList {
     let mut batch_list = BatchList::new();
-    batch_list.set_batches(protobuf::RepeatedField::from_vec(batches));
+    batch_list.set_batches(RepeatedField::from_vec(batches));
     batch_list
 }
 
@@ -185,7 +176,7 @@ pub fn create_batch_list(batches: Vec<Batch>) -> BatchList {
 /// * `batch` - a Batch
 pub fn create_batch_list_from_one(batch: Batch) -> BatchList {
     let mut batch_list = BatchList::new();
-    batch_list.set_batches(protobuf::RepeatedField::from_vec(vec![batch]));
+    batch_list.set_batches(RepeatedField::from_vec(vec![batch]));
     batch_list
 }
 
@@ -194,16 +185,15 @@ pub fn create_batch_list_from_one(batch: Batch) -> BatchList {
 mod tests {
     use super::*;
 
-    use commands::agent;
-    use sawtooth_sdk::messages::batch::Batch;
-    use sawtooth_sdk::messages::transaction::Transaction;
-    use sawtooth_sdk::signing;
-    use sawtooth_sdk::signing::{CryptoFactory, Signer};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use crate::commands::agent;
 
     use common::proto::payload::{
         CertificateRegistryPayload, CertificateRegistryPayload_Action, CreateAgentAction,
     };
+    use sawtooth_sdk::messages::batch::Batch;
+    use sawtooth_sdk::messages::transaction::Transaction;
+    use sawtooth_sdk::signing;
+    use sawtooth_sdk::signing::{CryptoFactory, Signer};
 
     #[test]
     fn create_transaction_test() {
@@ -303,8 +293,8 @@ mod tests {
 
     fn create_test_transaction(signer: &Signer) -> Result<Transaction, CliError> {
         // Create test payload
-        let since_the_epoch = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
+        let since_the_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
             .expect("Time went backwards");
         let timestamp = since_the_epoch.as_secs();
 
@@ -351,8 +341,8 @@ mod tests {
     fn create_test_payload(
         signer: &Signer,
     ) -> (CertificateRegistryPayload, Vec<String>, Vec<String>) {
-        let since_the_epoch = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
+        let since_the_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
             .expect("Time went backwards");
         let timestamp = since_the_epoch.as_secs();
 

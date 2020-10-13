@@ -14,15 +14,13 @@
 
 //! Contains functions which assist with signing key management
 
+use crate::error::CliError;
+
+use sawtooth_sdk::signing::secp256k1::Secp256k1PrivateKey;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-
 use users::get_current_username;
-
-use sawtooth_sdk::signing::secp256k1::Secp256k1PrivateKey;
-
-use error::CliError;
 
 /// Return a signing key loaded from the user's environment
 ///

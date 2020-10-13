@@ -1,28 +1,25 @@
+use crate::commands::agent::{create_agent_payload, create_agent_transaction_addresses};
+use crate::commands::organization::{
+    create_organization_payload, create_organization_transaction_addresses,
+};
+use crate::commands::standard::{create_standard_payload, create_standard_transaction_addresses};
+use crate::error::CliError;
+use crate::transaction::{create_batch, create_transaction};
+
+use chrono::NaiveDate;
+use clap::ArgMatches;
+use common::proto::organization::Organization_Type;
+use protobuf::Message;
+use sawtooth_sdk::messages::batch::Batch;
+use sawtooth_sdk::messages::batch::BatchList;
+use sawtooth_sdk::signing;
+use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use chrono::NaiveDate;
-use clap::ArgMatches;
-use common::proto::organization::Organization_Type;
-use protobuf;
-use protobuf::Message;
-use sawtooth_sdk::messages::batch::Batch;
-use sawtooth_sdk::messages::batch::BatchList;
-use sawtooth_sdk::signing;
-use serde;
-use serde_yaml;
 use uuid::Uuid;
-
-use commands::agent::{create_agent_payload, create_agent_transaction_addresses};
-use commands::organization::{
-    create_organization_payload, create_organization_transaction_addresses,
-};
-use commands::standard::{create_standard_payload, create_standard_transaction_addresses};
-use error::CliError;
-use transaction::{create_batch, create_transaction};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct GenesisAgent {

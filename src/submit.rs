@@ -14,19 +14,15 @@
 
 //! Contains functions which assist with batch submission to a REST API
 
-use error::CliError;
+use crate::error::CliError;
+
 use futures::Stream;
 use futures::{future, Future};
-use hyper;
-use hyper::header::ContentLength;
-use hyper::header::ContentType;
-use hyper::Client;
-use hyper::Method;
-use hyper::Request;
+use hyper::header::{ContentLength, ContentType};
+use hyper::{Client, Method, Request, Uri};
 use protobuf::Message;
 use sawtooth_sdk::messages::batch::BatchList;
-use serde_json;
-use tokio_core;
+use serde_derive::Deserialize;
 
 #[derive(Deserialize, Debug)]
 struct Link {
@@ -56,7 +52,7 @@ pub struct InvalidTransactions {
 
 pub fn submit_batch_list(url: &str, batch_list: &BatchList) -> Result<String, CliError> {
     let post_url = String::from(url) + "/api/batches";
-    let hyper_uri = post_url.parse::<hyper::Uri>()?;
+    let hyper_uri = post_url.parse::<Uri>()?;
 
     match hyper_uri.scheme() {
         Some(scheme) => {
@@ -95,7 +91,7 @@ pub fn submit_batch_list(url: &str, batch_list: &BatchList) -> Result<String, Cl
 
 pub fn wait_for_status(base_url: &str, batch_status_link: &str) -> Result<StatusData, CliError> {
     let link = format!("{}/api{}{}", base_url, batch_status_link, "&wait=true");
-    let req = Request::new(Method::Get, link.parse::<hyper::Uri>()?);
+    let req = Request::new(Method::Get, link.parse::<Uri>()?);
 
     // Create client
     let mut core = tokio_core::reactor::Core::new()?;

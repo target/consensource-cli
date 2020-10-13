@@ -1,23 +1,19 @@
-use clap::ArgMatches;
+use crate::error::CliError;
+use crate::key;
+use crate::submit;
+use crate::transaction::{create_batch, create_batch_list_from_one, create_transaction};
 
+use clap::ArgMatches;
 use common::addressing;
 use common::proto::payload::CreateOrganizationAction;
-
 use common::proto::payload::{CertificateRegistryPayload, CertificateRegistryPayload_Action};
-use error::CliError;
-use transaction::{create_batch, create_batch_list_from_one, create_transaction};
-
-use key;
 use sawtooth_sdk::signing;
-use submit;
+use std::{thread, time};
 use uuid::Uuid;
 
 use common::proto::organization::Factory_Address;
 use common::proto::organization::Organization_Contact;
 use common::proto::organization::Organization_Type;
-use std::{thread, time};
-
-use protobuf;
 
 pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     match args.subcommand() {
