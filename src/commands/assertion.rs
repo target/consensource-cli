@@ -38,6 +38,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
         },
         ("certificate", Some(args)) => match args.subcommand() {
             ("create", Some(args)) => run_certificate_create_command(args),
+            ("batch_create", Some(args)) => run_certificate_batch_create_command(args),
             _ => Err(CliError::InvalidInputError(String::from(
                 "Invalid subcommand. Pass --help for usage",
             ))),
@@ -224,7 +225,7 @@ fn run_factory_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), Cli
     let batch_list = create_batch_list(batches);
 
     println!("Submitting batch list for processing");
-    submit_factory_assertions_batch_list(String::from(assertion_id), batch_list, url)
+    submit_assertions_batch_list(String::from(assertion_id), batch_list, url)
 }
 
 fn run_certificate_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
@@ -293,6 +294,88 @@ fn run_certificate_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliEr
         key,
         url,
     )
+}
+
+fn run_certificate_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+    // Extract system arguments
+    let key = args.value_of("key");
+    let url = args.value_of("url").unwrap_or("http://localhost:9009");
+
+    // Define uninitialized arguments
+    let mut certificate_id: &str;
+    let mut asserter_organization_id: &str;
+    let mut factory_organization_id: &str;
+    let mut valid_from: &str;
+    let mut valid_to: &str;
+    let mut standard_id: &str;
+    let mut assertion_id = String::from("");
+
+    // Read factories from provided JSON batch file
+    let filepath = args.value_of("filepath").unwrap();
+    let mut file = File::open(filepath)?;
+    let mut data: String = String::new();
+    file.read_to_string(&mut data)?;
+    let factories: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+
+    // Create signing key
+    let private_key = key::load_signing_key(key)?;
+    let context = signing::create_context(SECP_256K1)?;
+    let factory = signing::CryptoFactory::new(&*context);
+    let signer = factory.new_signer(&private_key);
+
+    // Loop through map of factories and populate list of transactions
+    println!("Creating transactions for {}", filepath);
+    let mut txn_list: Vec<Transaction> = vec![];
+    for (key, value) in factories.as_object().unwrap() {
+        // Gather information and initialize defined variables from above
+        certificate_id = key.as_str();
+        asserter_organization_id = value
+            .get("asserter_organization_id")
+            .unwrap()
+            .as_str()
+            .unwrap();
+        factory_organization_id = value.get("factory_id").unwrap().as_str().unwrap();
+        standard_id = value.get("standard_id").unwrap().as_str().unwrap();
+        valid_from = value.get("valid_from").unwrap().as_str().unwrap();
+        valid_to = value.get("valid_to").unwrap().as_str().unwrap();
+
+        // Generate new assertion ID
+        assertion_id = Uuid::new_v4().to_string();
+
+        // Build create_certificate_action payload
+        let create_certificate_action_payload = build_create_certificate_action_payload(
+            &certificate_id,
+            factory_organization_id,
+            standard_id,
+            vec![],
+            valid_from,
+            valid_to,
+        );
+
+        // Create assertion payload to be submitted
+        let assertion_payload =
+            create_certificate_assertion_payload(&assertion_id, create_certificate_action_payload);
+
+        // Create certificate assertion transaction address
+        let (header_input, header_output) = create_certificate_assertion_transaction_addresses(
+            &signer,
+            &assertion_id,
+            &asserter_organization_id,
+            certificate_id,
+            factory_organization_id,
+            standard_id,
+        )?;
+
+        let txn = create_transaction(&assertion_payload, &signer, header_input, header_output)?;
+        txn_list.push(txn);
+    }
+
+    println!("Creating batch list for transactions");
+    let batches = create_batches(txn_list, &signer)?;
+    let batch_list = create_batch_list(batches);
+
+    println!("Submitting batch list for processing");
+    submit_assertions_batch_list(String::from(assertion_id), batch_list, url)
 }
 
 fn run_standard_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
@@ -403,7 +486,7 @@ fn submit_factory_assertion_transaction(
     }
 }
 
-fn submit_factory_assertions_batch_list(
+fn submit_assertions_batch_list(
     assertion_id: String,
     batch_list: BatchList,
     url: &str,
