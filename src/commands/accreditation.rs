@@ -67,12 +67,12 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
         &payload,
         &signer,
         vec![
-            standard_address.clone(),
-            agent_address.clone(),
+            standard_address,
+            agent_address,
             certifying_body_address.clone(),
-            standards_body_address.clone(),
+            standards_body_address,
         ],
-        vec![certifying_body_address.clone()],
+        vec![certifying_body_address],
     )?;
     let batch = create_batch(txn, &signer)?;
     let batch_list = create_batch_list_from_one(batch);

@@ -78,21 +78,21 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
 
     // Validate factory-specifc args
     match street {
-        None => Err(CliError::InvalidInputError(format!(
-            "A street address is required for a factory"
-        ))),
+        None => Err(CliError::InvalidInputError(
+            "A street address is required for a factory".to_string(),
+        )),
         val => Ok(val),
     }?;
     match city {
-        None => Err(CliError::InvalidInputError(format!(
-            "A city is required for a factory"
-        ))),
+        None => Err(CliError::InvalidInputError(
+            "A city is required for a factory".to_string(),
+        )),
         val => Ok(val),
     }?;
     match country {
-        None => Err(CliError::InvalidInputError(format!(
-            "A country is required for a factory"
-        ))),
+        None => Err(CliError::InvalidInputError(
+            "A country is required for a factory".to_string(),
+        )),
         val => Ok(val),
     }?;
 
@@ -225,7 +225,7 @@ fn run_factory_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), Cli
     let batch_list = create_batch_list(batches);
 
     println!("Submitting batch list for processing");
-    submit_assertions_batch_list(String::from(assertion_id), batch_list, url)
+    submit_assertions_batch_list(assertion_id, batch_list, url)
 }
 
 fn run_certificate_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
@@ -375,7 +375,7 @@ fn run_certificate_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(),
     let batch_list = create_batch_list(batches);
 
     println!("Submitting batch list for processing");
-    submit_assertions_batch_list(String::from(assertion_id), batch_list, url)
+    submit_assertions_batch_list(assertion_id, batch_list, url)
 }
 
 fn run_standard_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
@@ -589,7 +589,7 @@ fn submit_standard_assertion_transaction(
         }
     }
 }
-
+#[allow(clippy::too_many_arguments)]
 fn build_create_organization_action_payload(
     id: &str,
     organization_type: Organization_Type,
@@ -745,10 +745,7 @@ fn create_factory_assertion_transaction_addresses(
             factory_organization_address.clone(),
             assertion_address.clone(),
         ],
-        vec![
-            factory_organization_address.clone(),
-            assertion_address.clone(),
-        ],
+        vec![factory_organization_address, assertion_address],
     ))
 }
 
@@ -782,7 +779,7 @@ fn create_standard_assertion_transaction_addresses(
             standard_id_address.clone(),
             assertion_address.clone(),
         ],
-        vec![standard_id_address.clone(), assertion_address.clone()],
+        vec![standard_id_address, assertion_address],
     ))
 }
 
@@ -820,14 +817,15 @@ fn create_certificate_assertion_transaction_addresses(
             agent_address,
             asserter_organization_address,
             certificate_id_address.clone(),
-            factory_id_address.clone(),
-            standard_id_address.clone(),
+            factory_id_address,
+            standard_id_address,
             assertion_address.clone(),
         ],
-        vec![certificate_id_address.clone(), assertion_address.clone()],
+        vec![certificate_id_address, assertion_address],
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn submit_certificate_assertion_transaction(
     assertion_payload: CertificateRegistryPayload,
     assertion_id: &str,

@@ -137,6 +137,6 @@ pub fn create_standard_transaction_addresses(
             agent_address,
             organization_address,
         ],
-        vec![standard_address.clone()],
+        vec![standard_address],
     ))
 }

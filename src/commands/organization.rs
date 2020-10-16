@@ -56,21 +56,21 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
 
     if organization_type == Organization_Type::FACTORY {
         match street {
-            None => Err(CliError::InvalidInputError(format!(
-                "A street address is required for a factory"
-            ))),
+            None => Err(CliError::InvalidInputError(
+                "A street address is required for a factory".to_string(),
+            )),
             other => Ok(other),
         }?;
         match city {
-            None => Err(CliError::InvalidInputError(format!(
-                "A city is required for a factory"
-            ))),
+            None => Err(CliError::InvalidInputError(
+                "A city is required for a factory".to_string(),
+            )),
             other => Ok(other),
         }?;
         match country {
-            None => Err(CliError::InvalidInputError(format!(
-                "A country is required for a factory"
-            ))),
+            None => Err(CliError::InvalidInputError(
+                "A country is required for a factory".to_string(),
+            )),
             other => Ok(other),
         }?;
     }
@@ -136,6 +136,7 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_organization_payload(
     id: &str,
     name: &str,
