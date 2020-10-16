@@ -1,19 +1,16 @@
-use clap::ArgMatches;
-
-use common::addressing;
-use common::proto::payload::CreateStandardAction;
-
-use common::proto::payload::{CertificateRegistryPayload, CertificateRegistryPayload_Action};
-use error::CliError;
-use transaction::{create_batch, create_batch_list_from_one, create_transaction};
-
-use key;
-use sawtooth_sdk::signing;
-use submit;
+use crate::error::CliError;
+use crate::key;
+use crate::submit;
+use crate::transaction::{create_batch, create_batch_list_from_one, create_transaction};
 
 use chrono::NaiveDateTime;
+use clap::ArgMatches;
+use common::addressing;
+use common::proto::payload::CreateStandardAction;
+use common::proto::payload::{CertificateRegistryPayload, CertificateRegistryPayload_Action};
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
+use sawtooth_sdk::signing;
 use std::{thread, time};
 
 pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {

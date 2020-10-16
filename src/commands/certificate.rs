@@ -1,18 +1,16 @@
-use clap::ArgMatches;
+use crate::error::CliError;
+use crate::key;
+use crate::submit;
+use crate::transaction::{create_batch, create_batch_list_from_one, create_transaction};
 
+use clap::ArgMatches;
 use common::addressing;
 use common::proto::certificate::Certificate_CertificateData;
 use common::proto::payload::IssueCertificateAction;
 use common::proto::payload::{
     CertificateRegistryPayload, CertificateRegistryPayload_Action, IssueCertificateAction_Source,
 };
-use error::CliError;
-use transaction::{create_batch, create_batch_list_from_one, create_transaction};
-
-use key;
 use sawtooth_sdk::signing;
-use submit;
-
 use std::{thread, time};
 
 pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {

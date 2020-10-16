@@ -14,13 +14,9 @@
 
 //! Contains functions which assist with error management
 
-use std;
+use sawtooth_sdk::signing;
 use std::borrow::Borrow;
 use std::error::Error as StdError;
-
-use hyper;
-use protobuf;
-use sawtooth_sdk::signing;
 
 #[derive(Debug)]
 pub enum CliError {

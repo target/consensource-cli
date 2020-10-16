@@ -1,5 +1,11 @@
-use clap::ArgMatches;
+use crate::error::CliError;
+use crate::key;
+use crate::submit;
+use crate::transaction::{
+    create_batch, create_batch_list, create_batch_list_from_one, create_batches, create_transaction,
+};
 
+use clap::ArgMatches;
 use common::addressing;
 use common::proto::certificate::Certificate_CertificateData;
 use common::proto::organization::{Factory_Address, Organization_Contact, Organization_Type};
@@ -8,21 +14,12 @@ use common::proto::payload::{
     CertificateRegistryPayload_Action, CreateOrganizationAction, CreateStandardAction,
     IssueCertificateAction, IssueCertificateAction_Source,
 };
-
-use error::CliError;
-
-use key;
 use sawtooth_sdk::messages::batch::BatchList;
 use sawtooth_sdk::messages::transaction::Transaction;
 use sawtooth_sdk::signing;
-use serde_json;
 use std::fs::File;
 use std::io::prelude::*;
 use std::{thread, time};
-use submit;
-use transaction::{
-    create_batch, create_batch_list, create_batch_list_from_one, create_batches, create_transaction,
-};
 use uuid::Uuid;
 
 const SECP_256K1: &str = "secp256k1";

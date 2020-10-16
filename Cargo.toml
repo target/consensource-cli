@@ -2,6 +2,7 @@
 name = "consensource-cli"
 version = "0.1.0"
 authors = ["Target"]
+edition = "2018"
 
 [[bin]]
 name = "csrc"
