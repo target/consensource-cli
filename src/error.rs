@@ -29,6 +29,7 @@ pub enum CliError {
     HyperError(hyper::Error),
     InvalidTransactionError(String),
     InvalidInputError(String),
+    ReqwestError(reqwest::Error),
 }
 
 impl StdError for CliError {
@@ -41,6 +42,7 @@ impl StdError for CliError {
             CliError::HyperError(ref err) => Some(err.borrow()),
             CliError::InvalidTransactionError(ref _s) => None,
             CliError::InvalidInputError(ref _s) => None,
+            CliError::ReqwestError(ref err) => Some(err.borrow()),
         }
     }
 }
@@ -55,6 +57,7 @@ impl std::fmt::Display for CliError {
             CliError::HyperError(ref err) => write!(f, "HyperError: {}", err.to_string()),
             CliError::InvalidTransactionError(ref s) => write!(f, "InvalidTransactionError: {}", s),
             CliError::InvalidInputError(ref s) => write!(f, "InvalidInput: {}", s),
+            CliError::ReqwestError(ref err) => write!(f, "ReqwestError: {}", err.to_string()),
         }
     }
 }
@@ -86,5 +89,11 @@ impl From<hyper::Error> for CliError {
 impl From<hyper::error::UriError> for CliError {
     fn from(err: hyper::error::UriError) -> Self {
         CliError::UserError(format!("Invalid URL: {}", err))
+    }
+}
+
+impl From<reqwest::Error> for CliError {
+    fn from(e: reqwest::Error) -> Self {
+        CliError::ReqwestError(e)
     }
 }
