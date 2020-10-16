@@ -82,7 +82,7 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     if payload.get_issue_certificate().get_source() == IssueCertificateAction_Source::FROM_REQUEST {
         let request_address = addressing::make_request_address(request_id.unwrap());
         header_input.push(request_address.clone());
-        header_output.push(request_address.clone());
+        header_output.push(request_address);
     }
     let txn = create_transaction(&payload, &signer, header_input, header_output)?;
     let batch = create_batch(txn, &signer)?;
@@ -122,6 +122,7 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn issue_certificate_payload(
     id: &str,
     factory_id: &str,
