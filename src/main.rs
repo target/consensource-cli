@@ -74,6 +74,11 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg key: -k --key +takes_value "Signing key of the admin doing the authoriation")
                 (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
+            (@subcommand get =>
+                (about: "get an agent by pub key")
+                (@arg key: +required "Public Key of agent")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
+            )
         )
 
         (@subcommand genesis =>

@@ -17,6 +17,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     match args.subcommand() {
         ("create", Some(args)) => run_create_command(args),
         ("authorize", Some(args)) => run_authorize_command(args),
+        ("get", Some(args)) => run_get_command(args),
         _ => Err(CliError::InvalidInputError(String::from(
             "Invalid subcommand. Pass --help for usage",
         ))),
@@ -76,6 +77,17 @@ fn run_authorize_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     let batch_list = create_batch_list_from_one(batch);
 
     agent_status_handler(&public_key, "authorize", url, &batch_list)
+}
+
+fn run_get_command(args: &ArgMatches) -> Result<(), CliError> {
+    let key = args.value_of("key").unwrap();
+    let url = args.value_of("url").unwrap_or("http://localhost:9009");
+    let mut agent_url = url.to_owned();
+    agent_url.push_str("/api/agents/");
+    agent_url.push_str(key);
+    let res = reqwest::blocking::get(&agent_url)?.text()?;
+    println!("{:#?}", res);
+    Ok(())
 }
 
 fn agent_status_handler(
