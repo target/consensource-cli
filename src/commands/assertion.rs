@@ -12,7 +12,7 @@ use common::proto::organization::{Factory_Address, Organization_Contact, Organiz
 use common::proto::payload::{
     AssertAction, AssertAction_FactoryAssertion, CertificateRegistryPayload,
     CertificateRegistryPayload_Action, CreateOrganizationAction, CreateStandardAction,
-    IssueCertificateAction, IssueCertificateAction_Source,
+    IssueCertificateAction, IssueCertificateAction_Source, TransferAssertionAction,
 };
 use sawtooth_sdk::messages::batch::BatchList;
 use sawtooth_sdk::messages::transaction::Transaction;
@@ -46,6 +46,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
                 "Invalid subcommand. Pass --help for usage",
             ))),
         },
+        ("transfer", Some(args)) => run_transfer_command(args),
         _ => Err(CliError::InvalidInputError(String::from(
             "Invalid subcommand. Pass --help for usage",
         ))),
@@ -420,6 +421,17 @@ fn run_standard_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError
     )
 }
 
+fn run_transfer_command(args: &ArgMatches) -> Result<(), CliError> {
+    // Extract system arguments
+    let key = args.value_of("key");
+    let url = args.value_of("url").unwrap_or("http://localhost:9009");
+    let assertion_id = args.value_of("id").expect("Assertion ID must be provided");
+
+    let payload = create_transfer_assertion_payload(assertion_id);
+
+    submit_transfer_assertion_transaction(payload, &assertion_id, key, url)
+}
+
 fn submit_factory_assertion_transaction(
     assertion_payload: CertificateRegistryPayload,
     assertion_id: &str,
@@ -586,6 +598,61 @@ fn submit_standard_assertion_transaction(
         }
     }
 }
+
+fn submit_transfer_assertion_transaction(
+    transfer_payload: CertificateRegistryPayload,
+    assertion_id: &str,
+    key: Option<&str>,
+    url: &str,
+) -> Result<(), CliError> {
+    let private_key = key::load_signing_key(key)?;
+    let context = signing::create_context(SECP_256K1)?;
+    let factory = signing::CryptoFactory::new(&*context);
+    let signer = factory.new_signer(&private_key);
+
+    let (header_input, header_output) =
+        create_transfer_assertion_transaction_addresses(&signer, assertion_id)?;
+
+    let txn = create_transaction(&transfer_payload, &signer, header_input, header_output)?;
+    let batch = create_batch(txn, &signer)?;
+    let batch_list = create_batch_list_from_one(batch);
+
+    let mut batch_status = submit::submit_batch_list(url, &batch_list)
+        .and_then(|link| submit::wait_for_status(url, &link))?;
+
+    loop {
+        match batch_status
+            .data
+            .get(0)
+            .expect("Expected a batch status, but was not found")
+            .status
+            .as_ref()
+        {
+            "COMMITTED" => {
+                println!("Assertion {} has been transferred", assertion_id);
+                break Ok(());
+            }
+            "INVALID" => {
+                break Err(CliError::InvalidTransactionError(
+                    batch_status.data[0]
+                        .invalid_transactions
+                        .get(0)
+                        .expect("Expected a transaction status, but was not found")
+                        .message
+                        .clone(),
+                ));
+            }
+            // "PENDING" case where we should recheck
+            // "UNKNOWN" case where we should recheck
+            // "STATUS_UNSET" case where we should recheck
+            _ => {
+                thread::sleep(time::Duration::from_millis(3000));
+                batch_status = submit::wait_for_status(url, &batch_status.link)?;
+            }
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn build_create_organization_action_payload(
     id: &str,
@@ -712,6 +779,17 @@ fn create_certificate_assertion_payload(
     payload
 }
 
+fn create_transfer_assertion_payload(assertion_id: &str) -> CertificateRegistryPayload {
+    let mut transfer = TransferAssertionAction::new();
+    transfer.set_assertion_id(String::from(assertion_id));
+    transfer.set_new_owner_public_key(String::from("Plz dont use dis"));
+
+    let mut payload = CertificateRegistryPayload::new();
+    payload.action = CertificateRegistryPayload_Action::TRANSFER_ASSERTION;
+    payload.set_transfer_assertion_action(transfer);
+    payload
+}
+
 /// Creates a tuple of transaction header input/output addresses
 ///
 /// Required inputs
@@ -819,6 +897,48 @@ fn create_certificate_assertion_transaction_addresses(
             assertion_address.clone(),
         ],
         vec![certificate_id_address, assertion_address],
+    ))
+}
+
+/// Creates a tuple of transaction header input/output addresses
+///
+/// Required inputs
+/// - agent address
+/// - assertion address
+/// - asserted factory/cert body/standards body address
+/// - asserted cert address
+/// - asserted standard address
+///
+/// Required outputs:
+/// - new agent address
+/// - factory org
+/// - cert
+/// - standard
+/// - assertion address
+fn create_transfer_assertion_transaction_addresses(
+    signer: &signing::Signer,
+    assertion_id: &str,
+) -> Result<(Vec<String>, Vec<String>), CliError> {
+    let agent_address = addressing::make_agent_address(&signer.get_public_key()?.as_hex());
+    let organization_space_prefix = addressing::get_family_namespace_prefix() + "00" + "02";
+    let certificate_space_prefix = addressing::get_family_namespace_prefix() + "00" + "01";
+    let standard_space_prefix = addressing::get_family_namespace_prefix() + "00" + "03";
+    let assertion_address = addressing::make_assertion_address(assertion_id);
+    Ok((
+        vec![
+            agent_address.clone(),
+            organization_space_prefix.clone(),
+            certificate_space_prefix.clone(),
+            standard_space_prefix.clone(),
+            assertion_address.clone(),
+        ],
+        vec![
+            agent_address,
+            organization_space_prefix,
+            certificate_space_prefix,
+            standard_space_prefix,
+            assertion_address,
+        ],
     ))
 }
 

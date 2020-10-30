@@ -215,6 +215,12 @@ fn parse_args<'a>() -> ArgMatches<'a> {
               (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
           )
+          (@subcommand transfer =>
+              (about: "transfer an assertion of any type")
+              (@arg id: +required "Assertion ID")
+              (@arg key: -k --key +takes_value "Signing key name")
+              (@arg url: --url +takes_value "URL to the ConsenSource REST API")
+          )
         )
     );
     app.get_matches()
