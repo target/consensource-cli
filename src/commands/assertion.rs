@@ -2,7 +2,8 @@ use crate::error::CliError;
 use crate::key;
 use crate::submit;
 use crate::transaction::{
-    create_batch, create_batch_list, create_batch_list_from_one, create_batches, create_transaction,
+    create_batch, create_batch_list, create_batch_list_from_one, create_batch_with_transactions,
+    create_transaction,
 };
 
 use clap::ArgMatches;
@@ -219,8 +220,8 @@ fn run_factory_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), Cli
     }
 
     println!("Creating batch list for transactions");
-    let batches = create_batches(txn_list, &signer)?;
-    let batch_list = create_batch_list(batches);
+    let batch = create_batch_with_transactions(txn_list, &signer)?;
+    let batch_list = create_batch_list(vec![batch]);
 
     println!("Submitting batch list for processing");
     submit_assertions_batch_list(assertion_id, batch_list, url)
@@ -369,8 +370,8 @@ fn run_certificate_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(),
     }
 
     println!("Creating batch list for transactions");
-    let batches = create_batches(txn_list, &signer)?;
-    let batch_list = create_batch_list(batches);
+    let batch = create_batch_with_transactions(txn_list, &signer)?;
+    let batch_list = create_batch_list(vec![batch]);
 
     println!("Submitting batch list for processing");
     submit_assertions_batch_list(assertion_id, batch_list, url)

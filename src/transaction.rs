@@ -125,37 +125,41 @@ pub fn create_batch(txn: Transaction, signer: &Signer) -> Result<Batch, CliError
     Ok(batch)
 }
 
-/// Returns a vector of Batch structs for a given vector of Transaction structs and a Signer
+/// Returns a Batch for the given list of Transactions and Signer
 ///
 /// # Arguments
 ///
-/// * `txns` - a vector of Transaction structs
+/// * `txns` - a vec of Transactions
 /// * `signer` - the signer to be used to sign the transaction
 ///
 /// # Errors
 ///
-/// If an error occurs during serialization of a provided Transaction or
+/// If an error occurs during serialization of the provided vec of Transactions or
 /// internally created `BatchHeader`, a `CliError::ProtobufError` is
 /// returned.
 ///
 /// If a signing error occurs, a `CliError::SigningError` is returned.
-pub fn create_batches(txns: Vec<Transaction>, signer: &Signer) -> Result<Vec<Batch>, CliError> {
-    let mut batches: Vec<Batch> = vec![];
+pub fn create_batch_with_transactions(
+    txns: Vec<Transaction>,
+    signer: &Signer,
+) -> Result<Batch, CliError> {
+    let mut batch = Batch::new();
+    let mut batch_header = BatchHeader::new();
+    batch_header.set_transaction_ids(RepeatedField::from_vec(
+        txns.iter()
+            .map(|txn| txn.header_signature.clone())
+            .collect(),
+    ));
+    batch_header.set_signer_public_key(signer.get_public_key()?.as_hex());
+    batch.set_transactions(RepeatedField::from_vec(txns));
 
-    for txn in txns {
-        let batch = match create_batch(txn, signer) {
-            Ok(b) => b,
-            Err(e) => {
-                return Err(CliError::InvalidTransactionError(format!(
-                    "Error creating batch list: {}",
-                    e
-                )));
-            }
-        };
-        batches.push(batch);
-    }
+    let batch_header_bytes = batch_header.write_to_bytes()?;
+    batch.set_header(batch_header_bytes.clone());
 
-    Ok(batches)
+    let b: &[u8] = &batch_header_bytes;
+    batch.set_header_signature(signer.sign(b)?);
+
+    Ok(batch)
 }
 
 /// Returns a BatchList containing the provided vector Batch structs
@@ -230,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn create_batches_test() {
+    fn create_batch_with_transactions_test() {
         // Create test signer
         let context =
             signing::create_context("secp256k1").expect("Failed to create secp256k1 context");
@@ -242,13 +246,13 @@ mod tests {
 
         let test_txns =
             create_test_transactions(&signer).expect("Failed to create test transactions");
-        let batches = create_batches(test_txns, &signer);
+        let batches = create_batch_with_transactions(test_txns, &signer);
 
         assert!(batches.is_ok());
     }
 
     #[test]
-    fn create_batch_list_test() {
+    fn create_batch_with_transactions_list_test() {
         // Create test signer
         let context =
             signing::create_context("secp256k1").expect("Failed to create secp256k1 context");
@@ -260,13 +264,30 @@ mod tests {
 
         let test_txns =
             create_test_transactions(&signer).expect("Failed to create test transactions");
-        let batches = create_batches(test_txns, &signer).expect("Failed to create batches");
-        let batch_list = create_batch_list(batches.clone());
+        let batch =
+            create_batch_with_transactions(test_txns, &signer).expect("Failed to create batches");
+        let batch_list = create_batch_list(vec![batch.clone()]);
 
-        assert!(batch_list.get_batches().len() > 1);
+        assert!(batch_list.get_batches().len() == 1);
 
-        assert_eq!(batch_list.get_batches().get(0), batches.get(0));
-        assert_eq!(batch_list.get_batches().get(1), batches.get(1));
+        assert_eq!(
+            batch_list
+                .get_batches()
+                .get(0)
+                .unwrap()
+                .get_transactions()
+                .get(0),
+            batch.get_transactions().get(0)
+        );
+        assert_eq!(
+            batch_list
+                .get_batches()
+                .get(0)
+                .unwrap()
+                .get_transactions()
+                .get(1),
+            batch.get_transactions().get(1)
+        );
     }
 
     #[test]
