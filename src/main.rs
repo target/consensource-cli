@@ -110,20 +110,30 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (about: "issue a certificate")
                 (@arg id: +required "Id of the certificate to be issued")
                 (@arg certifying_body_id: +required "Certifying body that is issuing the certificate")
-                (@arg factory_id: "Factory the certificate is being issued to")
+                (@arg factory_id: +required "Factory the certificate is being issued to")
                 (@arg source: +required "The source that triggered the IssueCertificate Trasaction:
                 1 (FROM_REQUEST): it means the IssueCertificateAction is associated to a request made by a factory.
                 The argument request_id must be passed as well.
                 2 (INDEPENDENT):  it means the IssueCertificateAction is not associated with a request made by a factory.
                 The field factory_name must passed as well")
                 (@arg request_id: --request_id +takes_value "Id of the certificate request made by the factory")
-                (@arg standard_id: "Standard that this certificate is for")
+                (@arg standard_id: +required "Standard that this certificate is for")
                 (@arg cert_data: -cd --cert_data +takes_value +multiple "Optional cert data")
                 (@arg valid_from: +required "Start timestamp of the certificate")
                 (@arg valid_to: +required "End timestamp of the certificate")
                 (@arg key: -k --key +takes_value "Signing key name")
                 (@arg url: --url +takes_value "URL to the ConsenSource REST API")
             )
+            (@subcommand update =>
+                (about: "update a certificate")
+                (@arg id: +required "Id of the certificate to be issued")
+                (@arg certifying_body_id: +required "Certifying body that is issuing the certificate")
+                (@arg valid_from: +required "Start timestamp of the certificate")
+                (@arg valid_to: +required "End timestamp of the certificate")
+                (@arg cert_data: -cd --cert_data +takes_value +multiple "Optional cert data")
+                (@arg key: -k --key +takes_value "Signing key name")
+                (@arg url: --url +takes_value "URL to the ConsenSource REST API")
+          )
         )
         (@subcommand standard =>
             (about: "manage standards")
