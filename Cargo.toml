@@ -1,8 +1,10 @@
 [package]
 name = "consensource-cli"
 version = "0.1.0"
+description = "A command-line interface client for ConsenSource"
 authors = ["Target"]
 edition = "2018"
+license = "Apache-2.0"
 
 [[bin]]
 name = "csrc"
