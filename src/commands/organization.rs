@@ -15,7 +15,7 @@ use common::proto::organization::Factory_Address;
 use common::proto::organization::Organization_Contact;
 use common::proto::organization::Organization_Type;
 
-pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     match args.subcommand() {
         ("create", Some(args)) => run_create_command(args),
         _ => Err(CliError::InvalidInputError(String::from(
@@ -24,7 +24,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
-fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_create_command(args: &ArgMatches) -> Result<(), CliError> {
     let name = args.value_of("name").unwrap();
     let contact_name = args.value_of("contact_name").unwrap();
     let contact_phone_number = args.value_of("contact_phone_number").unwrap();

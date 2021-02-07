@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 const SECP_256K1: &str = "secp256k1";
 
-pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     match args.subcommand() {
         ("factory", Some(args)) => match args.subcommand() {
             ("create", Some(args)) => run_factory_create_command(args),
@@ -54,7 +54,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
-fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_factory_create_command(args: &ArgMatches) -> Result<(), CliError> {
     // Extract arg values
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
@@ -123,7 +123,7 @@ fn run_factory_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError>
     )
 }
 
-fn run_factory_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_factory_batch_create_command(args: &ArgMatches) -> Result<(), CliError> {
     // Extract system arguments
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
@@ -227,7 +227,7 @@ fn run_factory_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), Cli
     submit_assertions_batch_list(assertion_id, batch_list, url)
 }
 
-fn run_certificate_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_certificate_create_command(args: &ArgMatches) -> Result<(), CliError> {
     // Extract system arguments
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
@@ -295,7 +295,7 @@ fn run_certificate_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliEr
     )
 }
 
-fn run_certificate_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_certificate_batch_create_command(args: &ArgMatches) -> Result<(), CliError> {
     // Extract system arguments
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
@@ -377,7 +377,7 @@ fn run_certificate_batch_create_command<'a>(args: &ArgMatches<'a>) -> Result<(),
     submit_assertions_batch_list(assertion_id, batch_list, url)
 }
 
-fn run_standard_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_standard_create_command(args: &ArgMatches) -> Result<(), CliError> {
     // Extract system arguments
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");

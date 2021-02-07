@@ -13,7 +13,7 @@ use common::proto::payload::{IssueCertificateAction, UpdateCertificateAction};
 use sawtooth_sdk::signing;
 use std::{thread, time};
 
-pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     match args.subcommand() {
         ("create", Some(args)) => run_create_command(args),
         ("update", Some(args)) => run_update_command(args),
@@ -23,7 +23,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
-fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_create_command(args: &ArgMatches) -> Result<(), CliError> {
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
     let cert_id = args.value_of("id").unwrap();
@@ -121,7 +121,7 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
-fn run_update_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_update_command(args: &ArgMatches) -> Result<(), CliError> {
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
     let cert_id = args.value_of("id").unwrap();
@@ -158,12 +158,7 @@ fn run_update_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     let factory = signing::CryptoFactory::new(&*context);
     let signer = factory.new_signer(&private_key);
 
-    let payload = update_certificate_payload(
-        &cert_id,
-        cert_data?,
-        &valid_from,
-        &valid_to,
-    )?;
+    let payload = update_certificate_payload(&cert_id, cert_data?, &valid_from, &valid_to)?;
 
     let header_input = make_update_header_input(&public_key, &certifying_body_id, &cert_id);
     let header_output = vec![addressing::make_certificate_address(cert_id)];
@@ -281,12 +276,12 @@ fn make_create_header_input(
 }
 
 fn make_update_header_input(
-  public_key: &str,
-  certifying_body_id: &str,
-  certificate_id: &str,
+    public_key: &str,
+    certifying_body_id: &str,
+    certificate_id: &str,
 ) -> Vec<String> {
-  let agent_address = addressing::make_agent_address(public_key);
-  let org_address = addressing::make_organization_address(certifying_body_id);
-  let cert_address = addressing::make_certificate_address(certificate_id);
-  vec![agent_address, org_address, cert_address]
+    let agent_address = addressing::make_agent_address(public_key);
+    let org_address = addressing::make_organization_address(certifying_body_id);
+    let cert_address = addressing::make_certificate_address(certificate_id);
+    vec![agent_address, org_address, cert_address]
 }

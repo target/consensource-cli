@@ -13,7 +13,7 @@ use sawtooth_sdk::signing;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 
-pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     match args.subcommand() {
         ("create", Some(args)) => run_create_command(args),
         ("authorize", Some(args)) => run_authorize_command(args),
@@ -23,7 +23,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
-fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_create_command(args: &ArgMatches) -> Result<(), CliError> {
     let name = args.value_of("name").unwrap();
     let key = args.value_of("key");
     let url = args.value_of("url").unwrap_or("http://localhost:9009");
@@ -50,7 +50,7 @@ fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     agent_status_handler(&public_key, "create", url, &batch_list)
 }
 
-fn run_authorize_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_authorize_command(args: &ArgMatches) -> Result<(), CliError> {
     let agent_to_be_authorized = args.value_of("authorize_agent").unwrap(); // Pub key of agent we want to authorize
     let org_id = args.value_of("org_id").unwrap();
     let role = args.value_of("role").unwrap();

@@ -73,7 +73,7 @@ struct GenesisAddress {
     country: String,
 }
 
-pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     let context = signing::create_context("secp256k1")?;
     let factory = signing::CryptoFactory::new(&*context);
 
