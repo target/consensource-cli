@@ -13,7 +13,7 @@ use crypto::sha2::Sha256;
 use sawtooth_sdk::signing;
 use std::{thread, time};
 
-pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     match args.subcommand() {
         ("create", Some(args)) => run_create_command(args),
         _ => Err(CliError::InvalidInputError(String::from(
@@ -22,7 +22,7 @@ pub fn run<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
     }
 }
 
-fn run_create_command<'a>(args: &ArgMatches<'a>) -> Result<(), CliError> {
+fn run_create_command(args: &ArgMatches) -> Result<(), CliError> {
     let name = args.value_of("name").unwrap();
     let version = args.value_of("version").unwrap();
     let description = args.value_of("description").unwrap();
