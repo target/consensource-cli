@@ -1,0 +1,12 @@
+{
+  "certificate_id_1": {
+    "certifying_body_id": "test_cert_body_id",
+    "valid_from": "20201013",
+    "valid_to": "20211013"
+  },
+  "certificate_id_2": {
+    "certifying_body_id": "test_cert_body_id",
+    "valid_from": "20201013",
+    "valid_to": "20211013"
+  }
+}
