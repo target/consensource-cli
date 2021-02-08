@@ -309,12 +309,12 @@ fn run_certificate_batch_create_command(args: &ArgMatches) -> Result<(), CliErro
     let mut standard_id: &str;
     let mut assertion_id = String::from("");
 
-    // Read factories from provided JSON batch file
+    // Read certificates from provided JSON batch file
     let filepath = args.value_of("filepath").unwrap();
     let mut file = File::open(filepath)?;
     let mut data: String = String::new();
     file.read_to_string(&mut data)?;
-    let factories: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+    let certificates: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
 
     // Create signing key
     let private_key = key::load_signing_key(key)?;
@@ -322,10 +322,10 @@ fn run_certificate_batch_create_command(args: &ArgMatches) -> Result<(), CliErro
     let factory = signing::CryptoFactory::new(&*context);
     let signer = factory.new_signer(&private_key);
 
-    // Loop through map of factories and populate list of transactions
+    // Loop through map of certificates and populate list of transactions
     println!("Creating transactions for {}", filepath);
     let mut txn_list: Vec<Transaction> = vec![];
-    for (key, value) in factories.as_object().unwrap() {
+    for (key, value) in certificates.as_object().unwrap() {
         // Gather information and initialize defined variables from above
         certificate_id = key.as_str();
         asserter_organization_id = value
