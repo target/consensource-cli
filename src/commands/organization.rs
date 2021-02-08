@@ -1,13 +1,19 @@
 use crate::error::CliError;
 use crate::key;
 use crate::submit;
-use crate::transaction::{create_batch, create_batch_list_from_one, create_transaction};
+use crate::transaction::{
+    create_batch, create_batch_list, create_batch_list_from_one, create_batch_with_transactions,
+    create_transaction,
+};
 
 use clap::ArgMatches;
 use common::addressing;
 use common::proto::payload::{CertificateRegistryPayload, CertificateRegistryPayload_Action};
 use common::proto::payload::{CreateOrganizationAction, UpdateOrganizationAction};
+use sawtooth_sdk::messages::transaction::Transaction;
 use sawtooth_sdk::signing;
+use std::fs::File;
+use std::io::prelude::*;
 use std::{thread, time};
 use uuid::Uuid;
 
@@ -15,10 +21,13 @@ use common::proto::organization::Factory_Address;
 use common::proto::organization::Organization_Contact;
 use common::proto::organization::Organization_Type;
 
+const SECP_256K1: &str = "secp256k1";
+
 pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     match args.subcommand() {
         ("create", Some(args)) => run_create_command(args),
         ("update", Some(args)) => run_update_command(args),
+        ("batch_update", Some(args)) => run_batch_update_command(args),
         _ => Err(CliError::InvalidInputError(String::from(
             "Invalid subcommand. Pass --help for usage",
         ))),
@@ -198,6 +207,108 @@ fn run_update_command(args: &ArgMatches) -> Result<(), CliError> {
             _ => {
                 thread::sleep(time::Duration::from_millis(3000));
                 org_status = submit::wait_for_status(url, &org_status.link)?;
+            }
+        }
+    }
+}
+
+fn run_batch_update_command(args: &ArgMatches) -> Result<(), CliError> {
+    // Extract system arguments
+    let key = args.value_of("key");
+    let url = args.value_of("url").unwrap_or("http://localhost:9009");
+
+    // Define uninitialized arguments
+    let mut org_id: &str;
+    let mut name: Option<&str>;
+    let mut contact_name: Option<&str>;
+    let mut contact_phone_number: Option<&str>;
+    let mut contact_language_code: Option<&str>;
+    let mut street: Option<&str>;
+    let mut city: Option<&str>;
+    let mut country: Option<&str>;
+
+    // Read factories from provided JSON batch file
+    let filepath = args.value_of("filepath").unwrap();
+    let mut file = File::open(filepath)?;
+    let mut data: String = String::new();
+    file.read_to_string(&mut data)?;
+    let org_updates: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+
+    // Create signing key
+    let private_key = key::load_signing_key(key)?;
+    let context = signing::create_context(SECP_256K1)?;
+    let factory = signing::CryptoFactory::new(&*context);
+    let signer = factory.new_signer(&private_key);
+
+    // Loop through map of factories and populate list of transactions
+    println!("Creating transactions for {}", filepath);
+    let mut txn_list: Vec<Transaction> = vec![];
+    for (key, value) in org_updates.as_object().unwrap() {
+        org_id = key.as_str();
+        name = value.get("name").unwrap().as_str();
+        contact_name = value.get("contact_name").unwrap().as_str();
+        contact_phone_number = value.get("contact_phone_number").unwrap().as_str();
+        contact_language_code = value.get("contact_language_code").unwrap().as_str();
+        street = value.get("street_address").unwrap().as_str();
+        city = value.get("city").unwrap().as_str();
+        country = value.get("country").unwrap().as_str();
+
+        let update_org_action_payload = update_organization_payload(
+            org_id,
+            name,
+            contact_name,
+            contact_phone_number,
+            contact_language_code,
+            street,
+            city,
+            country,
+        );
+
+        let header_input =
+            create_organization_transaction_addresses(&signer.get_public_key()?.as_hex(), &org_id);
+        let header_output = header_input.clone();
+        let txn = create_transaction(
+            &update_org_action_payload,
+            &signer,
+            header_input,
+            header_output,
+        )?;
+        txn_list.push(txn);
+    }
+
+    println!("Creating batch list for transactions");
+    let batch = create_batch_with_transactions(txn_list, &signer)?;
+    let batch_list = create_batch_list(vec![batch]);
+
+    let mut update_org_status = submit::submit_batch_list(url, &batch_list)
+        .and_then(|link| submit::wait_for_status(url, &link))?;
+
+    loop {
+        match update_org_status
+            .data
+            .get(0)
+            .expect("Expected a batch status, but was not found")
+            .status
+            .as_ref()
+        {
+            "COMMITTED" => {
+                println!("Organizations from file {} have been updated", filepath);
+                break Ok(());
+            }
+            "INVALID" => {
+                break Err(CliError::InvalidTransactionError(
+                    update_org_status.data[0]
+                        .invalid_transactions
+                        .get(0)
+                        .expect("Expected a transaction status, but was not found")
+                        .message
+                        .clone(),
+                ));
+            }
+            // "PENDING" case where we should recheck
+            _ => {
+                thread::sleep(time::Duration::from_millis(3000));
+                update_org_status = submit::wait_for_status(url, &update_org_status.link)?;
             }
         }
     }

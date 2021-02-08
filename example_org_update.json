@@ -1,0 +1,20 @@
+{
+  "test_factory_id_1": {
+    "name": "Bow & Arrow Co.",
+    "contact_name": "Bergil",
+    "contact_phone_number": "0118999881999111725",
+    "contact_language_code": "Westron",
+    "city": "Minas Tirith",
+    "country": "Gondor",
+    "street_address": "123 White Throne Boulevard, Gondor\n54123"
+  },
+  "test_factory_id_2": {
+    "name": "Dark Tower Inc.",
+    "contact_name": "Lammen Gorthaur",
+    "contact_phone_number": "3",
+    "contact_language_code": "Westron",
+    "city": "Barad-dur",
+    "country": "Mordor",
+    "street_address": "456 Orodruin Drive, Mordor\n54321"
+  }
+}
