@@ -152,7 +152,13 @@ fn parse_args<'a>() -> ArgMatches<'a> {
                 (@arg cert_data: -cd --cert_data +takes_value +multiple "Optional cert data")
                 (@arg key: -k --key +takes_value "Signing key name")
                 (@arg url: --url +takes_value "URL to the ConsenSource REST API")
-          )
+            )
+            (@subcommand batch_update =>
+              (about: "update a batch of certificates")
+              (@arg filepath: +required "File path to read JSON data of certificate updates")
+              (@arg key: -k --key +takes_value "Signing key name")
+              (@arg url: --url +takes_value "URL to the ConsenSource REST API")
+            )
         )
         (@subcommand standard =>
             (about: "manage standards")

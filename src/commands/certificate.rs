@@ -1,7 +1,10 @@
 use crate::error::CliError;
 use crate::key;
 use crate::submit;
-use crate::transaction::{create_batch, create_batch_list_from_one, create_transaction};
+use crate::transaction::{
+    create_batch, create_batch_list, create_batch_list_from_one, create_batch_with_transactions,
+    create_transaction,
+};
 
 use clap::ArgMatches;
 use common::addressing;
@@ -10,13 +13,19 @@ use common::proto::payload::{
     CertificateRegistryPayload, CertificateRegistryPayload_Action, IssueCertificateAction_Source,
 };
 use common::proto::payload::{IssueCertificateAction, UpdateCertificateAction};
+use sawtooth_sdk::messages::transaction::Transaction;
 use sawtooth_sdk::signing;
+use std::fs::File;
+use std::io::prelude::*;
 use std::{thread, time};
+
+const SECP_256K1: &str = "secp256k1";
 
 pub fn run(args: &ArgMatches) -> Result<(), CliError> {
     match args.subcommand() {
         ("create", Some(args)) => run_create_command(args),
         ("update", Some(args)) => run_update_command(args),
+        ("batch_update", Some(args)) => run_batch_update_command(args),
         _ => Err(CliError::InvalidInputError(String::from(
             "Invalid subcommand. Pass --help for usage",
         ))),
@@ -59,7 +68,7 @@ fn run_create_command(args: &ArgMatches) -> Result<(), CliError> {
         .unwrap_or_else(|| Ok(vec![]));
 
     let private_key = key::load_signing_key(key)?;
-    let context = signing::create_context("secp256k1")?;
+    let context = signing::create_context(SECP_256K1)?;
     let public_key = context.get_public_key(&private_key)?.as_hex();
     let factory = signing::CryptoFactory::new(&*context);
     let signer = factory.new_signer(&private_key);
@@ -153,12 +162,12 @@ fn run_update_command(args: &ArgMatches) -> Result<(), CliError> {
         .unwrap_or_else(|| Ok(vec![]));
 
     let private_key = key::load_signing_key(key)?;
-    let context = signing::create_context("secp256k1")?;
+    let context = signing::create_context(SECP_256K1)?;
     let public_key = context.get_public_key(&private_key)?.as_hex();
     let factory = signing::CryptoFactory::new(&*context);
     let signer = factory.new_signer(&private_key);
 
-    let payload = update_certificate_payload(&cert_id, cert_data?, &valid_from, &valid_to)?;
+    let payload = update_certificate_payload(&cert_id, cert_data?, &valid_from, &valid_to);
 
     let header_input = make_update_header_input(&public_key, &certifying_body_id, &cert_id);
     let header_output = vec![addressing::make_certificate_address(cert_id)];
@@ -195,6 +204,96 @@ fn run_update_command(args: &ArgMatches) -> Result<(), CliError> {
             _ => {
                 thread::sleep(time::Duration::from_millis(3000));
                 batch_status = submit::wait_for_status(&url, &batch_status.link)?;
+            }
+        }
+    }
+}
+
+fn run_batch_update_command(args: &ArgMatches) -> Result<(), CliError> {
+    // Extract system arguments
+    let key = args.value_of("key");
+    let url = args.value_of("url").unwrap_or("http://localhost:9009");
+
+    // Define uninitialized arguments
+    let mut cert_id: &str;
+    let mut certifying_body_id: &str;
+    let mut valid_from: &str;
+    let mut valid_to: &str;
+    // TODO: support this eventually
+    let mut cert_data: Result<Vec<Certificate_CertificateData>, CliError>;
+
+    // Read factories from provided JSON batch file
+    let filepath = args.value_of("filepath").unwrap();
+    let mut file = File::open(filepath)?;
+    let mut data: String = String::new();
+    file.read_to_string(&mut data)?;
+    let certificates: serde_json::Value = serde_json::from_str(&data).expect("Unable to parse");
+
+    // Create signing key
+    let private_key = key::load_signing_key(key)?;
+    let context = signing::create_context(SECP_256K1)?;
+    let factory = signing::CryptoFactory::new(&*context);
+    let signer = factory.new_signer(&private_key);
+
+    // Loop through map of certificates and populate list of transactions
+    println!("Creating transactions for {}", filepath);
+    let mut txn_list: Vec<Transaction> = vec![];
+    for (key, value) in certificates.as_object().unwrap() {
+        // Gather information and initialize defined variables from above
+        cert_id = key.as_str();
+        certifying_body_id = value.get("certifying_body_id").unwrap().as_str().unwrap();
+        valid_from = value.get("valid_from").unwrap().as_str().unwrap();
+        valid_to = value.get("valid_to").unwrap().as_str().unwrap();
+        cert_data = Ok(vec![]);
+
+        // Build update certificate payload
+        let update_cert_payload =
+            update_certificate_payload(cert_id, cert_data?, valid_from, valid_to);
+
+        // Create a transaction address for the transaction
+        let header_input = make_update_header_input(
+            &signer.get_public_key()?.as_hex(),
+            &certifying_body_id,
+            &cert_id,
+        );
+        let header_output = vec![addressing::make_certificate_address(cert_id)];
+        let txn = create_transaction(&update_cert_payload, &signer, header_input, header_output)?;
+        txn_list.push(txn);
+    }
+
+    println!("Creating batch list for transactions");
+    let batch = create_batch_with_transactions(txn_list, &signer)?;
+    let batch_list = create_batch_list(vec![batch]);
+
+    let mut update_cert_status = submit::submit_batch_list(url, &batch_list)
+        .and_then(|link| submit::wait_for_status(url, &link))?;
+
+    loop {
+        match update_cert_status
+            .data
+            .get(0)
+            .expect("Expected a batch status, but was not found")
+            .status
+            .as_ref()
+        {
+            "COMMITTED" => {
+                println!("Certificates from file {} have been updated", filepath);
+                break Ok(());
+            }
+            "INVALID" => {
+                break Err(CliError::InvalidTransactionError(
+                    update_cert_status.data[0]
+                        .invalid_transactions
+                        .get(0)
+                        .expect("Expected a transaction status, but was not found")
+                        .message
+                        .clone(),
+                ));
+            }
+            // "PENDING" case where we should recheck
+            _ => {
+                thread::sleep(time::Duration::from_millis(3000));
+                update_cert_status = submit::wait_for_status(url, &update_cert_status.link)?;
             }
         }
     }
@@ -249,7 +348,7 @@ fn update_certificate_payload(
     cert_data: Vec<Certificate_CertificateData>,
     valid_from: &str,
     valid_to: &str,
-) -> Result<CertificateRegistryPayload, CliError> {
+) -> CertificateRegistryPayload {
     let mut certificate = UpdateCertificateAction::new();
     certificate.set_id(id.to_string());
     certificate.set_certificate_data(::protobuf::RepeatedField::from_vec(cert_data));
@@ -259,7 +358,7 @@ fn update_certificate_payload(
     let mut payload = CertificateRegistryPayload::new();
     payload.action = CertificateRegistryPayload_Action::UPDATE_CERTIFICATE;
     payload.set_update_certificate(certificate);
-    Ok(payload)
+    payload
 }
 
 fn make_create_header_input(
