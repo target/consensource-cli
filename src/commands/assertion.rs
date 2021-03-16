@@ -15,6 +15,8 @@ use common::proto::payload::{
     CertificateRegistryPayload_Action, CreateOrganizationAction, CreateStandardAction,
     IssueCertificateAction, IssueCertificateAction_Source, TransferAssertionAction,
 };
+use crypto::digest::Digest;
+use crypto::sha2::Sha256;
 use sawtooth_sdk::messages::batch::BatchList;
 use sawtooth_sdk::messages::transaction::Transaction;
 use sawtooth_sdk::signing;
@@ -391,9 +393,11 @@ fn run_standard_create_command(args: &ArgMatches) -> Result<(), CliError> {
     let approval_date = args.value_of("approval_date").unwrap();
 
     // Extract optional arguments
-    // We use randomly generated uuid if no id was supplied
-    let standard_uuid = Uuid::new_v4().to_string();
-    let standard_id = args.value_of("id").unwrap_or(&standard_uuid);
+    // We hash the name to produce an id if no id was supplied
+    let mut standard_id_sha = Sha256::new();
+    standard_id_sha.input_str(standard_name);
+    let standard_id_hash = standard_id_sha.result_str();
+    let standard_id = args.value_of("id").unwrap_or(&standard_id_hash);
 
     // Build create_standard_action payload
     let create_standard_action_payload = build_create_standard_action_payload(
